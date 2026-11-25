@@ -22,7 +22,7 @@ type UserRepoAPIKeyGroupFilterSuite struct {
 func (s *UserRepoAPIKeyGroupFilterSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.client = testEntClient(s.T())
-	s.repo = newUserRepositoryWithSQL(s.client, integrationDB)
+	s.repo = newUserRepositoryWithSQL(s.client, integrationDB, testPlatformSchema)
 	// api_keys 必须先于 users 清理（外键）；groups 也清理避免跨用例串扰。
 	_, _ = integrationDB.ExecContext(s.ctx, "DELETE FROM api_keys")
 	_, _ = integrationDB.ExecContext(s.ctx, "DELETE FROM user_allowed_groups")
@@ -38,13 +38,13 @@ func TestUserRepoAPIKeyGroupFilterSuite(t *testing.T) {
 func (s *UserRepoAPIKeyGroupFilterSuite) mustCreateUser(email string) *service.User {
 	s.T().Helper()
 	u := &service.User{
-		Email:        email,
-		PasswordHash: "test-password-hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Concurrency:  5,
+		Email: email,
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Concurrency: 5,
 	}
-	s.Require().NoError(s.repo.Create(s.ctx, u), "create user")
+	s.Require().NoError(seedBusinessUser(s.ctx, s.client, integrationDB, u), "create user")
 	return u
 }
 

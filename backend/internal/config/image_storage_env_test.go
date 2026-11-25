@@ -18,7 +18,7 @@ import (
 // IMAGE_STORAGE_BUCKET is dropped on the floor and Active() stays false while
 // image_storage.enabled reads true — the endpoints 404 with no useful signal.
 func TestLoadImageStorageFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("IMAGE_STORAGE_ENABLED", "true")
 	t.Setenv("IMAGE_STORAGE_ENDPOINT", "https://acct.r2.cloudflarestorage.com")
 	t.Setenv("IMAGE_STORAGE_BUCKET", "my-images")

@@ -24,10 +24,10 @@ func (prefixEncryptor) Decrypt(value string) (string, error) {
 	return value[4:], nil
 }
 
-// testTotpKeyConfig mirrors a deployment with a fixed TOTP_ENCRYPTION_KEY so
+// testSecretKeyConfig mirrors a deployment with a fixed SECRETS_ENCRYPTION_KEY so
 // unit tests may persist endpoint tokens.
-func testTotpKeyConfig() *config.Config {
-	return &config.Config{Totp: config.TotpConfig{EncryptionKeyConfigured: true}}
+func testSecretKeyConfig() *config.Config {
+	return &config.Config{Secrets: config.SecretsConfig{EncryptionKeyConfigured: true}}
 }
 
 func TestDefaultConfigIsOff(t *testing.T) {
@@ -99,7 +99,7 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 		manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 			SettingKeyPromptAuditConfig: "",
 			SettingKeyRiskControl:       "false",
-		}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+		}}, nil, prefixEncryptor{}, testSecretKeyConfig())
 		require.NoError(t, manager.Reload(context.Background()))
 
 		public, err := manager.Public()
@@ -115,7 +115,7 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 			// snapshot can be installed from this raw value.
 			SettingKeyPromptAuditConfig: `{"enabled":true,"config_version":9,"endpoints":[{"token_ciphertext":"` + canary + `"}]}`,
 			SettingKeyRiskControl:       "true",
-		}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+		}}, nil, prefixEncryptor{}, testSecretKeyConfig())
 		require.Error(t, manager.Reload(context.Background()))
 
 		public, err := manager.Public()
@@ -135,7 +135,7 @@ func TestConfigManagerPublicRequiresSuccessfullyLoadedSnapshot(t *testing.T) {
 			SettingKeyPromptAuditConfig: string(raw),
 			SettingKeyRiskControl:       "false",
 		}}}
-		manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testTotpKeyConfig())
+		manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testSecretKeyConfig())
 		require.NoError(t, manager.Reload(context.Background()))
 		repository.loadErr = errors.New("settings unavailable")
 		require.Error(t, manager.Reload(context.Background()))
@@ -157,7 +157,7 @@ func TestConfigManagerUndecryptableTokenKeepsConfigVisibleAndRecoverable(t *test
 	manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 		SettingKeyPromptAuditConfig: persisted,
 		SettingKeyRiskControl:       "true",
-	}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	}}, nil, prefixEncryptor{}, testSecretKeyConfig())
 	require.NoError(t, manager.Reload(context.Background()), "an undecryptable token must not fail the whole config load")
 
 	public, err := manager.Public()
@@ -189,7 +189,7 @@ func TestConfigManagerUndecryptableTokenStillFailsClosedForBlockingIntent(t *tes
 	manager := NewConfigManager(nil, staticSettingRepository{values: map[string]string{
 		SettingKeyPromptAuditConfig: persisted,
 		SettingKeyRiskControl:       "true",
-	}}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	}}, nil, prefixEncryptor{}, testSecretKeyConfig())
 	require.NoError(t, manager.Reload(context.Background()))
 	require.Equal(t, ModeBlocking, manager.EffectiveMode())
 
@@ -332,7 +332,7 @@ func (r *switchableSettingRepository) GetMultiple(ctx context.Context, keys []st
 func TestConfigManagerStartupLoadFailureDoesNotBlockWhenBlockingNotIntended(t *testing.T) {
 	// Settings unavailable and no prior blocking intent: stay ModeOff so the
 	// gateway remains usable and admins can still disable/configure Prompt Audit.
-	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testSecretKeyConfig())
 	err := manager.Start(context.Background())
 	require.Error(t, err)
 	require.True(t, manager.configUntrusted.Load())
@@ -351,7 +351,7 @@ func TestConfigManagerStartupLoadFailureDoesNotBlockWhenBlockingNotIntended(t *t
 }
 
 func TestConfigManagerStartupLoadFailureFailsClosedWhenBlockingIntended(t *testing.T) {
-	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, errorSettingRepository{}, nil, prefixEncryptor{}, testSecretKeyConfig())
 	// Simulate intent observed before a later load failure (e.g. decrypt error).
 	manager.observeExpectedState(`{"enabled":true,"blocking_enabled":true,"config_version":3}`, true)
 	manager.markConfigUntrusted()
@@ -470,7 +470,7 @@ func TestConfigLoadedIsLoggedOnlyWhenSomethingChanged(t *testing.T) {
 		SettingKeyPromptAuditConfig: string(raw),
 		SettingKeyRiskControl:       "false",
 	}}}
-	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testTotpKeyConfig())
+	manager := NewConfigManager(nil, repository, nil, prefixEncryptor{}, testSecretKeyConfig())
 
 	var output bytes.Buffer
 	previous := slog.Default()

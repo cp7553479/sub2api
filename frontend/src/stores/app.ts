@@ -326,19 +326,6 @@ export const useAppStore = defineStore('app', () => {
         return Promise.resolve({ ...cachedPublicSettings.value })
       }
       return Promise.resolve({
-        registration_enabled: false,
-        email_verify_enabled: false,
-        force_email_on_third_party_signup: false,
-        registration_email_suffix_whitelist: [],
-        promo_code_enabled: true,
-        password_reset_enabled: false,
-        invitation_code_enabled: false,
-        turnstile_enabled: false,
-        turnstile_site_key: '',
-        aliyun_captcha_enabled: false,
-        aliyun_captcha_scene_id: '',
-        aliyun_captcha_prefix: '',
-        aliyun_captcha_region: 'cn',
         site_name: siteName.value,
         site_logo: siteLogo.value,
         site_subtitle: '',
@@ -353,17 +340,7 @@ export const useAppStore = defineStore('app', () => {
         table_page_size_options: [10, 20, 50, 100],
         custom_menu_items: [],
         custom_endpoints: [],
-        linuxdo_oauth_enabled: false,
-        wechat_oauth_enabled: false,
-        wechat_oauth_open_enabled: false,
-        wechat_oauth_mp_enabled: false,
-        wechat_oauth_mobile_enabled: false,
-        oidc_oauth_enabled: false,
-        oidc_oauth_provider_name: 'OIDC',
-        github_oauth_enabled: false,
-        google_oauth_enabled: false,
         backend_mode_enabled: false,
-        passkey_enabled: false,
         version: siteVersion.value,
         balance_low_notify_enabled: false,
         account_quota_notify_enabled: false,
@@ -380,7 +357,6 @@ export const useAppStore = defineStore('app', () => {
         service_quota_enabled: false,
         affiliate_enabled: false,
         allow_user_view_error_requests: false,
-        mcp_enabled: false,
       })
     }
 

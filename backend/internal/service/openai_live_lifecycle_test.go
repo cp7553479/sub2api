@@ -363,7 +363,7 @@ func TestProxyLiveSidebandForwardsTextAndBinary(t *testing.T) {
 		Controller: LiveControllerPending,
 	}
 	attestationCipher := newLiveAttestationCipher(&config.Config{
-		JWT: config.JWTConfig{Secret: "live-sideband-test-secret"},
+		Secrets: config.SecretsConfig{EncryptionKey: "live-sideband-test-secret"},
 	})
 	var err error
 	record.AttestationCiphertext, err = attestationCipher.Encrypt(`{"v":1,"s":0,"t":"v1.sideband"}`)

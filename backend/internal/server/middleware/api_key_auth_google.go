@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -69,6 +70,10 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			if errors.Is(err, service.ErrAPIKeyAuthOverloaded) {
 				MarkIngressRejected(c, IngressRejectAPIKeyAuthOverloaded)
 				abortWithGoogleError(c, 503, "API key authentication is temporarily unavailable")
+				return
+			}
+			if status := infraerrors.Code(err); status == 401 || status == 403 || status == 503 {
+				abortWithGoogleError(c, status, infraerrors.Message(err))
 				return
 			}
 			if abortIfAPIKeyLookupClientGone(c, err) {

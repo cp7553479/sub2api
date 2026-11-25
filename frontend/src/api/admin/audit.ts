@@ -3,8 +3,8 @@
  *
  * The audit log is admin-only (not exposed to end users). It records
  * management-plane operations with masked header credentials and redacted
- * request bodies. Entries cannot be deleted individually; the whole log can
- * only be cleared with a fresh TOTP verification.
+ * request bodies. Administrators can clear the whole log; entries cannot be
+ * deleted individually.
  */
 
 import { apiClient } from '../client'
@@ -63,13 +63,9 @@ export async function get(id: number): Promise<AuditLog> {
   return data
 }
 
-/**
- * Clear all audit logs. Requires a fresh TOTP code (verified server-side);
- * unavailable when 2FA is not enabled for the operator.
- * @param totpCode - current 6-digit TOTP code
- */
-export async function clear(totpCode: string): Promise<{ deleted: number }> {
-  const { data } = await apiClient.post('/admin/audit-logs/clear', { totp_code: totpCode })
+/** Clear audit logs after administrator confirmation. */
+export async function clear(): Promise<{ deleted: number }> {
+  const { data } = await apiClient.post('/admin/audit-logs/clear')
   return data
 }
 

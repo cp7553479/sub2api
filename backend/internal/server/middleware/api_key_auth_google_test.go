@@ -28,7 +28,7 @@ func TestGoogleAPIKeyAuthRejectsOversizedCredentialsBeforeLookup(t *testing.T) {
 		return nil, service.ErrAPIKeyNotFound
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg, platformTestRepository{})
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -54,7 +54,7 @@ func TestGoogleAPIKeyAuthMarksLookupBulkheadRejection(t *testing.T) {
 		return nil, service.ErrAPIKeyAuthOverloaded
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg, platformTestRepository{})
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -281,8 +281,7 @@ func newTestAPIKeyService(repo service.APIKeyRepository) *service.APIKeyService 
 		nil, // userSubRepo
 		nil, // userGroupRateRepo
 		nil, // cache
-		&config.Config{},
-	)
+		&config.Config{}, platformTestRepository{})
 }
 
 func TestApiKeyAuthWithSubscriptionGoogle_MissingKey(t *testing.T) {
@@ -375,8 +374,7 @@ func TestApiKeyAuthWithSubscriptionGoogleSetsGroupContext(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		&config.Config{RunMode: config.RunModeSimple},
-	)
+		&config.Config{RunMode: config.RunModeSimple}, platformTestRepository{})
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	r := gin.New()

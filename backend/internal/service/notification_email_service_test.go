@@ -84,47 +84,6 @@ func TestNotificationEmailTemplateRejectsUnsupportedPlaceholder(t *testing.T) {
 	require.Contains(t, err.Error(), "unsupported placeholder")
 }
 
-func TestNotificationEmailAuthTemplatesAreListedAndPreviewable(t *testing.T) {
-	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
-
-	infos := svc.ListEventInfos()
-	events := make(map[string]NotificationEmailEventInfo, len(infos))
-	for _, info := range infos {
-		events[info.Event] = info
-	}
-	require.Contains(t, events, NotificationEmailEventAuthVerifyCode)
-	require.Contains(t, events, NotificationEmailEventAuthPasswordReset)
-	require.False(t, events[NotificationEmailEventAuthVerifyCode].Optional)
-	require.False(t, events[NotificationEmailEventAuthPasswordReset].Optional)
-	require.Contains(t, events[NotificationEmailEventAuthVerifyCode].Placeholders, "verification_code")
-	require.Contains(t, events[NotificationEmailEventAuthPasswordReset].Placeholders, "reset_url")
-
-	verifyPreview, err := svc.PreviewTemplate(ctx, NotificationEmailPreviewInput{
-		Event:  NotificationEmailEventAuthVerifyCode,
-		Locale: "zh-CN",
-		Variables: map[string]string{
-			"verification_code":  "654321",
-			"expires_in_minutes": "15",
-		},
-	})
-	require.NoError(t, err)
-	require.Contains(t, verifyPreview.Subject, "邮箱验证码")
-	require.Contains(t, verifyPreview.HTML, "654321")
-
-	resetPreview, err := svc.PreviewTemplate(ctx, NotificationEmailPreviewInput{
-		Event:  NotificationEmailEventAuthPasswordReset,
-		Locale: "en",
-		Variables: map[string]string{
-			"reset_url":          "https://example.com/reset?token=abc",
-			"expires_in_minutes": "30",
-		},
-	})
-	require.NoError(t, err)
-	require.Contains(t, resetPreview.Subject, "Password reset")
-	require.Contains(t, resetPreview.HTML, "https://example.com/reset?token=abc")
-}
-
 func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) {
 	ctx := context.Background()
 	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
@@ -307,20 +266,6 @@ func TestNotificationEmailFallbackClassification(t *testing.T) {
 	require.False(t, shouldFallbackNotificationEmail(nil))
 }
 
-func TestEmailQueueTasksPreserveLocaleHints(t *testing.T) {
-	queue := &EmailQueueService{taskChan: make(chan EmailTask, 2)}
-	require.NoError(t, queue.EnqueueVerifyCode("user@example.com", "Sub2API", "zh-CN"))
-	require.NoError(t, queue.EnqueuePasswordReset("user@example.com", "Sub2API", "https://example.com/reset", "en-US"))
-
-	verifyTask := <-queue.taskChan
-	require.Equal(t, TaskTypeVerifyCode, verifyTask.TaskType)
-	require.Equal(t, "zh-CN", verifyTask.Locale)
-
-	resetTask := <-queue.taskChan
-	require.Equal(t, TaskTypePasswordReset, resetTask.TaskType)
-	require.Equal(t, "en-US", resetTask.Locale)
-}
-
 func TestOpsScheduledReportDeliverySourceIDIncludesReportIdentity(t *testing.T) {
 	report := &opsScheduledReport{Name: "日报", ReportType: "daily_summary", Schedule: "0 9 * * *"}
 	sourceID := opsScheduledReportDeliverySourceID(report)
@@ -351,9 +296,9 @@ func TestNotificationEmailUnsubscribeOnlyAllowsOptionalEvents(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "transactional")
 
-	authToken, err := svc.createUnsubscribeToken(ctx, "user@example.com", NotificationEmailEventAuthVerifyCode)
+	mandatoryToken, err := svc.createUnsubscribeToken(ctx, "user@example.com", NotificationEmailEventNotificationEmailVerifyCode)
 	require.NoError(t, err)
-	_, err = svc.Unsubscribe(ctx, authToken)
+	_, err = svc.Unsubscribe(ctx, mandatoryToken)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "transactional")
 }

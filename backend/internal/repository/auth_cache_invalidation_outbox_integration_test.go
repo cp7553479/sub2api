@@ -74,7 +74,7 @@ func TestAuthCacheInvalidationTriggers_CoverSecurityMutationsOnly(t *testing.T) 
 	require.NoError(t, err)
 	clear()
 
-	userRepo := NewUserRepository(integrationEntClient, integrationDB)
+	userRepo := NewUserRepository(integrationEntClient, integrationDB, integrationUserConfig())
 	loadedUser, err := userRepo.GetByID(ctx, user.ID)
 	require.NoError(t, err)
 	_, err = userRepo.AdjustBalance(ctx, loadedUser.ID, 10)

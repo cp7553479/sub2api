@@ -3,17 +3,12 @@ package service
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
@@ -107,92 +102,10 @@ func (s *adminServiceImpl) GetUserIncludeDeleted(ctx context.Context, id int64) 
 
 // normalizeUserRole 校验并归一化角色输入。
 // 空字符串返回 fallback(未提供时的默认角色);非法值返回错误。
-func normalizeUserRole(role, fallback string) (string, error) {
-	if role == "" {
-		return fallback, nil
-	}
-	if role != RoleAdmin && role != RoleUser {
-		return "", fmt.Errorf("invalid role: %q (must be %s or %s)", role, RoleAdmin, RoleUser)
-	}
-	return role, nil
-}
-
-func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
-	balance := 0.0
-	if input.Balance != nil {
-		balance = *input.Balance
-	} else if s.settingService != nil {
-		balance = s.settingService.GetDefaultBalance(ctx)
-	}
-
-	// 角色可由管理员在创建时指定(admin/user);未提供时默认 user。
-	role, err := normalizeUserRole(input.Role, RoleUser)
-	if err != nil {
-		return nil, err
-	}
-
-	user := &User{
-		Email:         input.Email,
-		Username:      input.Username,
-		Notes:         input.Notes,
-		Role:          role,
-		Balance:       balance,
-		Concurrency:   input.Concurrency,
-		RPMLimit:      input.RPMLimit,
-		Status:        StatusActive,
-		AllowedGroups: input.AllowedGroups,
-
-		RestrictPublicGroups: input.RestrictPublicGroups,
-	}
-	if err := user.SetPassword(input.Password); err != nil {
-		return nil, err
-	}
-	if err := s.userRepo.Create(ctx, user); err != nil {
-		return nil, err
-	}
-	// 创建管理员属权限敏感操作，落审计日志（含操作者），便于事后追溯。
-	if user.Role == RoleAdmin {
-		logger.LegacyPrintf("service.admin", "audit: admin user created actor_admin_id=%d target_user_id=%d",
-			input.ActorAdminID, user.ID)
-	}
-	s.assignDefaultSubscriptions(ctx, user.ID)
-	return user, nil
-}
 
 // ensureNotLastAdmin 降级管理员前确认系统中仍存在其他管理员，防止零 admin 锁死。
 // 注：读取与写入之间存在竞态窗口，极端并发下仍可能双双降级；作为后台低频操作
 // 的兜底保护足够，彻底防护需依赖数据库层约束。
-func (s *adminServiceImpl) ensureNotLastAdmin(ctx context.Context) error {
-	noSubs := false
-	_, result, err := s.userRepo.ListWithFilters(ctx,
-		pagination.PaginationParams{Page: 1, PageSize: 1},
-		UserListFilters{Role: RoleAdmin, IncludeSubscriptions: &noSubs},
-	)
-	if err != nil {
-		return fmt.Errorf("count admin users: %w", err)
-	}
-	if result == nil || result.Total <= 1 {
-		return infraerrors.BadRequest("LAST_ADMIN_DEMOTE_FORBIDDEN", "cannot demote the last admin user")
-	}
-	return nil
-}
-
-func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userID int64) {
-	if s.settingService == nil || s.defaultSubAssigner == nil || userID <= 0 {
-		return
-	}
-	items := s.settingService.GetDefaultSubscriptions(ctx)
-	for _, item := range items {
-		if _, _, err := s.defaultSubAssigner.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
-			UserID:       userID,
-			GroupID:      item.GroupID,
-			ValidityDays: item.ValidityDays,
-			Notes:        "auto assigned by default user subscriptions setting",
-		}); err != nil {
-			logger.LegacyPrintf("service.admin", "failed to assign default subscription: user_id=%d group_id=%d err=%v", userID, item.GroupID, err)
-		}
-	}
-}
 
 func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
 	// 校验用户专属分组倍率：必须 > 0（nil 合法，表示清除专属倍率）
@@ -209,31 +122,13 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		return nil, err
 	}
 
-	// Protect admin users: cannot disable admin accounts
-	if user.Role == "admin" && input.Status == "disabled" {
-		return nil, infraerrors.BadRequest("ADMIN_DISABLE_FORBIDDEN", "cannot disable admin user; change the role to user first")
-	}
-
 	oldConcurrency := user.Concurrency
-	oldStatus := user.Status
-	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
 	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
 
 	// fields 与下面的 input.X 判空条件一一对应：管理员没提交的列不写回，
 	// 避免这份快照回滚并发的扣费、状态变更或批量限额调整。
 	var fields UserUpdateFields
-
-	if input.Email != "" {
-		user.Email = input.Email
-		fields.Email = true
-	}
-	if input.Password != "" {
-		if err := user.SetPassword(input.Password); err != nil {
-			return nil, err
-		}
-		fields.PasswordHash = true
-	}
 
 	if input.Username != nil {
 		user.Username = *input.Username
@@ -242,28 +137,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if input.Notes != nil {
 		user.Notes = *input.Notes
 		fields.Notes = true
-	}
-
-	if input.Status != "" {
-		user.Status = input.Status
-		fields.Status = true
-	}
-
-	// 角色变更(admin/user);空字符串表示不修改。
-	if input.Role != "" {
-		role, err := normalizeUserRole(input.Role, user.Role)
-		if err != nil {
-			return nil, err
-		}
-		// 防锁死保护：不允许降级系统中最后一个管理员（自我降级已在 handler 层拦截，
-		// 此处兜底覆盖跨管理员互降导致零 admin 的场景）。
-		if user.Role == RoleAdmin && role == RoleUser {
-			if err := s.ensureNotLastAdmin(ctx); err != nil {
-				return nil, err
-			}
-		}
-		user.Role = role
-		fields.Role = true
 	}
 
 	if input.Concurrency != nil {
@@ -291,12 +164,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		return nil, err
 	}
 
-	// 角色变更属权限敏感操作，落审计日志（含操作者），便于事后追溯。
-	if user.Role != oldRole {
-		logger.LegacyPrintf("service.admin", "audit: user role changed actor_admin_id=%d target_user_id=%d old_role=%s new_role=%s",
-			input.ActorAdminID, user.ID, oldRole, user.Role)
-	}
-
 	// 同步用户专属分组倍率
 	if input.GroupRates != nil && s.userGroupRateRepo != nil {
 		if err := s.userGroupRateRepo.SyncUserGroupRates(ctx, user.ID, input.GroupRates); err != nil {
@@ -307,7 +174,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if s.authCacheInvalidator != nil {
 		// RPMLimit 直接参与 billing_cache_service.checkRPM 的三级级联，
 		// allowed_groups 参与 API Key 专属分组授权判断；不失效缓存会让修改在一个 L2 TTL 内失去效果。
-		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.RestrictPublicGroups != oldRestrictPublicGroups || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
+		if user.Concurrency != oldConcurrency || user.RPMLimit != oldRPMLimit || user.RestrictPublicGroups != oldRestrictPublicGroups || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
 	}
@@ -354,97 +221,6 @@ func sameInt64Set(a, b []int64) bool {
 		counts[v]--
 	}
 	return true
-}
-
-func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
-	// Protect admin users: cannot delete admin accounts
-	user, err := s.userRepo.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-	if user.Role == "admin" {
-		return infraerrors.BadRequest("ADMIN_DELETE_FORBIDDEN", "cannot delete admin user; change the role to user first")
-	}
-
-	apiKeys, err := s.listUserAPIKeysForDeletion(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if s.entClient != nil {
-		tx, err := s.entClient.Tx(ctx)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = tx.Rollback() }()
-
-		opCtx := dbent.NewTxContext(ctx, tx)
-		if err := s.deleteUserWithAPIKeys(opCtx, id, apiKeys); err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-	} else {
-		if err := s.deleteUserWithAPIKeys(ctx, id, apiKeys); err != nil {
-			return err
-		}
-	}
-
-	if s.authCacheInvalidator != nil {
-		for _, key := range apiKeys {
-			if keyValue := strings.TrimSpace(key.Key); keyValue != "" {
-				s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, keyValue)
-			}
-		}
-		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, id)
-	}
-	return nil
-}
-
-func (s *adminServiceImpl) listUserAPIKeysForDeletion(ctx context.Context, userID int64) ([]APIKey, error) {
-	if s.apiKeyRepo == nil {
-		return nil, nil
-	}
-
-	const pageSize = 1000
-	keys := make([]APIKey, 0)
-	for page := 1; ; page++ {
-		batch, result, err := s.apiKeyRepo.ListByUserID(ctx, userID, pagination.PaginationParams{
-			Page:      page,
-			PageSize:  pageSize,
-			SortBy:    "id",
-			SortOrder: pagination.SortOrderAsc,
-		}, APIKeyListFilters{})
-		if err != nil {
-			return nil, fmt.Errorf("list user api keys: %w", err)
-		}
-		keys = append(keys, batch...)
-		if len(batch) == 0 || len(batch) < pageSize || result == nil || int64(len(keys)) >= result.Total {
-			break
-		}
-	}
-	return keys, nil
-}
-
-func (s *adminServiceImpl) deleteUserWithAPIKeys(ctx context.Context, userID int64, apiKeys []APIKey) error {
-	if s.apiKeyRepo != nil {
-		for _, key := range apiKeys {
-			if key.ID <= 0 {
-				continue
-			}
-			if err := s.apiKeyRepo.DeleteWithAudit(ctx, key.ID); err != nil {
-				logger.LegacyPrintf("service.admin", "delete user api key failed: user_id=%d api_key_id=%d err=%v", userID, key.ID, err)
-				return fmt.Errorf("delete user api key %d: %w", key.ID, err)
-			}
-		}
-	}
-
-	if err := s.userRepo.Delete(ctx, userID); err != nil {
-		logger.LegacyPrintf("service.admin", "delete user failed: user_id=%d err=%v", userID, err)
-		return err
-	}
-	return nil
 }
 
 func (s *adminServiceImpl) BatchUpdateConcurrency(ctx context.Context, userIDs []int64, value int, mode string) (int, error) {
@@ -906,336 +682,6 @@ func redeemCodeHistoryTime(code RedeemCode) time.Time {
 		return *code.UsedAt
 	}
 	return code.CreatedAt
-}
-
-func (s *adminServiceImpl) BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error) {
-	if userID <= 0 {
-		return nil, infraerrors.BadRequest("INVALID_INPUT", "user_id must be greater than 0")
-	}
-	if s == nil || s.entClient == nil || s.userRepo == nil {
-		return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_UNAVAILABLE", "auth identity binding service is unavailable")
-	}
-	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
-		return nil, err
-	}
-
-	providerType := normalizeAdminAuthIdentityProviderType(input.ProviderType)
-	providerKey := strings.TrimSpace(input.ProviderKey)
-	providerSubject := strings.TrimSpace(input.ProviderSubject)
-	if providerType == "" {
-		return nil, infraerrors.BadRequest("INVALID_INPUT", "provider_type must be one of email, linuxdo, oidc, wechat, or dingtalk")
-	}
-	if providerKey == "" || providerSubject == "" {
-		return nil, infraerrors.BadRequest("INVALID_INPUT", "provider_type, provider_key, and provider_subject are required")
-	}
-	canonicalProviderKey := canonicalAdminAuthIdentityProviderKey(providerType, "", providerKey)
-	compatibleProviderKeys := compatibleAdminAuthIdentityProviderKeys(providerType, providerKey)
-
-	var issuer *string
-	if input.Issuer != nil {
-		trimmed := strings.TrimSpace(*input.Issuer)
-		if trimmed != "" {
-			issuer = &trimmed
-		}
-	}
-
-	channelInput := normalizeAdminBindChannelInput(input.Channel)
-	if input.Channel != nil && channelInput == nil {
-		return nil, infraerrors.BadRequest("INVALID_INPUT", "channel, channel_app_id, and channel_subject are required when channel binding is provided")
-	}
-
-	verifiedAt := time.Now().UTC()
-	tx, err := s.entClient.Tx(ctx)
-	if err != nil {
-		return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_TX_FAILED", "failed to start auth identity bind transaction").WithCause(err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	identityRecords, err := tx.AuthIdentity.Query().
-		Where(
-			authidentity.ProviderTypeEQ(providerType),
-			authidentity.ProviderKeyIn(compatibleProviderKeys...),
-			authidentity.ProviderSubjectEQ(providerSubject),
-		).
-		All(ctx)
-	if err != nil {
-		return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_LOOKUP_FAILED", "failed to inspect auth identity ownership").WithCause(err)
-	}
-	if hasAdminAuthIdentityOwnershipConflict(identityRecords, userID) {
-		return nil, infraerrors.Conflict("AUTH_IDENTITY_OWNERSHIP_CONFLICT", "auth identity already belongs to another user")
-	}
-	identity := selectOwnedAdminAuthIdentity(identityRecords, userID)
-
-	if identity == nil {
-		create := tx.AuthIdentity.Create().
-			SetUserID(userID).
-			SetProviderType(providerType).
-			SetProviderKey(canonicalProviderKey).
-			SetProviderSubject(providerSubject).
-			SetVerifiedAt(verifiedAt)
-		if issuer != nil {
-			create = create.SetIssuer(*issuer)
-		}
-		if input.Metadata != nil {
-			create = create.SetMetadata(cloneAdminAuthIdentityMetadata(input.Metadata))
-		}
-		identity, err = create.Save(ctx)
-		if err != nil {
-			return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_SAVE_FAILED", "failed to save auth identity").WithCause(err)
-		}
-	} else {
-		update := tx.AuthIdentity.UpdateOneID(identity.ID).
-			SetVerifiedAt(verifiedAt).
-			SetProviderKey(canonicalProviderKey)
-		if issuer != nil {
-			update = update.SetIssuer(*issuer)
-		}
-		if input.Metadata != nil {
-			update = update.SetMetadata(cloneAdminAuthIdentityMetadata(input.Metadata))
-		}
-		identity, err = update.Save(ctx)
-		if err != nil {
-			return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_SAVE_FAILED", "failed to save auth identity").WithCause(err)
-		}
-	}
-
-	var channel *dbent.AuthIdentityChannel
-	if channelInput != nil {
-		channelRecords, err := tx.AuthIdentityChannel.Query().
-			Where(
-				authidentitychannel.ProviderTypeEQ(providerType),
-				authidentitychannel.ProviderKeyIn(compatibleProviderKeys...),
-				authidentitychannel.ChannelEQ(channelInput.Channel),
-				authidentitychannel.ChannelAppIDEQ(channelInput.ChannelAppID),
-				authidentitychannel.ChannelSubjectEQ(channelInput.ChannelSubject),
-			).
-			WithIdentity().
-			All(ctx)
-		if err != nil {
-			return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_CHANNEL_LOOKUP_FAILED", "failed to inspect auth identity channel ownership").WithCause(err)
-		}
-		if hasAdminAuthIdentityChannelOwnershipConflict(channelRecords, userID) {
-			return nil, infraerrors.Conflict("AUTH_IDENTITY_CHANNEL_OWNERSHIP_CONFLICT", "auth identity channel already belongs to another user")
-		}
-		channel = selectOwnedAdminAuthIdentityChannel(channelRecords, userID)
-		if channel == nil {
-			create := tx.AuthIdentityChannel.Create().
-				SetIdentityID(identity.ID).
-				SetProviderType(providerType).
-				SetProviderKey(canonicalProviderKey).
-				SetChannel(channelInput.Channel).
-				SetChannelAppID(channelInput.ChannelAppID).
-				SetChannelSubject(channelInput.ChannelSubject)
-			if channelInput.Metadata != nil {
-				create = create.SetMetadata(cloneAdminAuthIdentityMetadata(channelInput.Metadata))
-			}
-			channel, err = create.Save(ctx)
-			if err != nil {
-				return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_CHANNEL_SAVE_FAILED", "failed to save auth identity channel").WithCause(err)
-			}
-		} else {
-			update := tx.AuthIdentityChannel.UpdateOneID(channel.ID).
-				SetIdentityID(identity.ID).
-				SetProviderKey(canonicalProviderKey)
-			if channelInput.Metadata != nil {
-				update = update.SetMetadata(cloneAdminAuthIdentityMetadata(channelInput.Metadata))
-			}
-			channel, err = update.Save(ctx)
-			if err != nil {
-				return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_CHANNEL_SAVE_FAILED", "failed to save auth identity channel").WithCause(err)
-			}
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, infraerrors.InternalServer("ADMIN_AUTH_IDENTITY_BIND_COMMIT_FAILED", "failed to commit auth identity bind").WithCause(err)
-	}
-	return buildAdminBoundAuthIdentity(identity, channel), nil
-}
-
-func compatibleAdminAuthIdentityProviderKeys(providerType, providerKey string) []string {
-	providerType = strings.TrimSpace(strings.ToLower(providerType))
-	providerKey = strings.TrimSpace(providerKey)
-	if providerKey == "" {
-		return []string{providerKey}
-	}
-	if providerType != "wechat" {
-		return []string{providerKey}
-	}
-
-	keys := []string{providerKey}
-	if !strings.EqualFold(providerKey, "wechat-main") {
-		keys = append(keys, "wechat-main")
-	}
-	if !strings.EqualFold(providerKey, "wechat") {
-		keys = append(keys, "wechat")
-	}
-	return keys
-}
-
-func canonicalAdminAuthIdentityProviderKey(providerType, existingKey, requestedKey string) string {
-	providerType = strings.TrimSpace(strings.ToLower(providerType))
-	existingKey = strings.TrimSpace(existingKey)
-	requestedKey = strings.TrimSpace(requestedKey)
-	if providerType != "wechat" {
-		if requestedKey != "" {
-			return requestedKey
-		}
-		return existingKey
-	}
-	if strings.EqualFold(existingKey, "wechat") || strings.EqualFold(existingKey, "wechat-main") || strings.EqualFold(requestedKey, "wechat-main") {
-		return "wechat-main"
-	}
-	if requestedKey != "" {
-		return requestedKey
-	}
-	return existingKey
-}
-
-func adminAuthIdentityProviderKeyRank(providerType, providerKey string) int {
-	providerType = strings.TrimSpace(strings.ToLower(providerType))
-	providerKey = strings.TrimSpace(providerKey)
-	if providerType != "wechat" {
-		return 0
-	}
-	switch {
-	case strings.EqualFold(providerKey, "wechat-main"):
-		return 0
-	case strings.EqualFold(providerKey, "wechat"):
-		return 2
-	default:
-		return 1
-	}
-}
-
-func selectOwnedAdminAuthIdentity(records []*dbent.AuthIdentity, userID int64) *dbent.AuthIdentity {
-	var selected *dbent.AuthIdentity
-	for _, record := range records {
-		if record.UserID != userID {
-			continue
-		}
-		if selected == nil || adminAuthIdentityProviderKeyRank(record.ProviderType, record.ProviderKey) < adminAuthIdentityProviderKeyRank(selected.ProviderType, selected.ProviderKey) {
-			selected = record
-		}
-	}
-	return selected
-}
-
-func hasAdminAuthIdentityOwnershipConflict(records []*dbent.AuthIdentity, userID int64) bool {
-	for _, record := range records {
-		if record.UserID != userID {
-			return true
-		}
-	}
-	return false
-}
-
-func selectOwnedAdminAuthIdentityChannel(records []*dbent.AuthIdentityChannel, userID int64) *dbent.AuthIdentityChannel {
-	var selected *dbent.AuthIdentityChannel
-	for _, record := range records {
-		if record.Edges.Identity == nil || record.Edges.Identity.UserID != userID {
-			continue
-		}
-		if selected == nil || adminAuthIdentityProviderKeyRank(record.ProviderType, record.ProviderKey) < adminAuthIdentityProviderKeyRank(selected.ProviderType, selected.ProviderKey) {
-			selected = record
-		}
-	}
-	return selected
-}
-
-func hasAdminAuthIdentityChannelOwnershipConflict(records []*dbent.AuthIdentityChannel, userID int64) bool {
-	for _, record := range records {
-		if record.Edges.Identity != nil && record.Edges.Identity.UserID != userID {
-			return true
-		}
-	}
-	return false
-}
-
-func normalizeAdminBindChannelInput(input *AdminBindAuthIdentityChannelInput) *AdminBindAuthIdentityChannelInput {
-	if input == nil {
-		return nil
-	}
-	channel := &AdminBindAuthIdentityChannelInput{
-		Channel:        strings.TrimSpace(input.Channel),
-		ChannelAppID:   strings.TrimSpace(input.ChannelAppID),
-		ChannelSubject: strings.TrimSpace(input.ChannelSubject),
-		Metadata:       cloneAdminAuthIdentityMetadata(input.Metadata),
-	}
-	if channel.Channel == "" || channel.ChannelAppID == "" || channel.ChannelSubject == "" {
-		return nil
-	}
-	return channel
-}
-
-func normalizeAdminAuthIdentityProviderType(input string) string {
-	switch strings.ToLower(strings.TrimSpace(input)) {
-	case "email":
-		return "email"
-	case "linuxdo":
-		return "linuxdo"
-	case "oidc":
-		return "oidc"
-	case "wechat":
-		return "wechat"
-	case "dingtalk":
-		return "dingtalk"
-	default:
-		return ""
-	}
-}
-
-func buildAdminBoundAuthIdentity(identity *dbent.AuthIdentity, channel *dbent.AuthIdentityChannel) *AdminBoundAuthIdentity {
-	if identity == nil {
-		return nil
-	}
-	result := &AdminBoundAuthIdentity{
-		UserID:          identity.UserID,
-		ProviderType:    strings.TrimSpace(identity.ProviderType),
-		ProviderKey:     strings.TrimSpace(identity.ProviderKey),
-		ProviderSubject: strings.TrimSpace(identity.ProviderSubject),
-		VerifiedAt:      identity.VerifiedAt,
-		Issuer:          identity.Issuer,
-		Metadata:        cloneAdminAuthIdentityMetadata(identity.Metadata),
-		CreatedAt:       identity.CreatedAt,
-		UpdatedAt:       identity.UpdatedAt,
-	}
-	if channel != nil {
-		result.Channel = &AdminBoundAuthIdentityChannel{
-			Channel:        strings.TrimSpace(channel.Channel),
-			ChannelAppID:   strings.TrimSpace(channel.ChannelAppID),
-			ChannelSubject: strings.TrimSpace(channel.ChannelSubject),
-			Metadata:       cloneAdminAuthIdentityMetadata(channel.Metadata),
-			CreatedAt:      channel.CreatedAt,
-			UpdatedAt:      channel.UpdatedAt,
-		}
-	}
-	return result
-}
-
-func cloneAdminAuthIdentityMetadata(input map[string]any) map[string]any {
-	if input == nil {
-		return nil
-	}
-	if len(input) == 0 {
-		return map[string]any{}
-	}
-	data, err := json.Marshal(input)
-	if err != nil {
-		out := make(map[string]any, len(input))
-		for key, value := range input {
-			out[key] = value
-		}
-		return out
-	}
-	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
-		out = make(map[string]any, len(input))
-		for key, value := range input {
-			out[key] = value
-		}
-	}
-	return out
 }
 
 // Redeem code management implementations

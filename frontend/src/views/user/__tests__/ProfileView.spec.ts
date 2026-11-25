@@ -82,7 +82,7 @@ describe('ProfileView', () => {
           ProfileInfoCard: { template: '<div data-testid="profile-info-card" />' },
           ProfileBalanceNotifyCard: { template: '<div data-testid="profile-balance-notify-card" />' },
           ProfilePasswordForm: { template: '<div data-testid="profile-password-form" />' },
-          ProfileTotpCard: { template: '<div data-testid="profile-totp-card" />' },
+          ProfileEmailForm: { template: '<div data-testid="profile-email-form" />' },
           Icon: true
         }
       }
@@ -94,6 +94,7 @@ describe('ProfileView', () => {
     expect(wrapper.get('[data-testid="profile-shell"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
+    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-email-form')
+    expect(wrapper.find('[data-testid="profile-totp-card"]').exists()).toBe(false)
   })
 })

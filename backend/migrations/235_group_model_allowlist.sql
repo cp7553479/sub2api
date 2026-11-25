@@ -4,12 +4,12 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public'
+        WHERE table_schema = current_schema()
           AND table_name = 'groups'
           AND column_name = 'models_list_config'
     ) AND NOT EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public'
+        WHERE table_schema = current_schema()
           AND table_name = 'groups'
           AND column_name = 'model_allowlist'
     ) THEN

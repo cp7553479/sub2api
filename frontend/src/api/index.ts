@@ -7,7 +7,7 @@
 export { apiClient } from './client'
 
 // Auth API
-export { authAPI, isTotp2FARequired, type LoginResponse } from './auth'
+export { authAPI, type LoginResponse } from './auth'
 
 // User APIs
 export { keysAPI } from './keys'
@@ -18,8 +18,6 @@ export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
 export * as batchImageAPI from './batchImage'
-export { totpAPI } from './totp'
-export { passkeyAPI, type PasskeyCredentialSummary } from './passkey'
 export { default as announcementsAPI } from './announcements'
 export { channelMonitorUserAPI } from './channelMonitor'
 

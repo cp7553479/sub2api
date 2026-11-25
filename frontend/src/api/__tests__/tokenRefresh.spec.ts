@@ -19,14 +19,10 @@ function seedSession(overrides: Partial<Record<string, string>> = {}): void {
 function refreshedResponse() {
   return {
     data: {
-      code: 0,
-      message: 'ok',
-      data: {
         access_token: 'new-access',
         refresh_token: 'new-refresh',
         expires_in: 3600,
         token_type: 'Bearer'
-      }
     }
   }
 }
@@ -34,6 +30,7 @@ function refreshedResponse() {
 describe('refreshAuthTokens', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.stubEnv('VITE_PLATFORM_API_URL', 'https://identity.example.test')
     mockedPost.mockReset()
     vi.resetModules()
     Object.defineProperty(navigator, 'locks', {
@@ -44,6 +41,7 @@ describe('refreshAuthTokens', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllEnvs()
   })
 
   it('shares one refresh request between concurrent callers in the same document', async () => {
@@ -60,6 +58,7 @@ describe('refreshAuthTokens', () => {
     const second = refreshAuthTokens({ failedAccessToken: 'old-access' })
 
     expect(mockedPost).toHaveBeenCalledTimes(1)
+    expect(mockedPost).toHaveBeenCalledWith('https://identity.example.test/auth/refresh', { refresh_token: 'old-refresh' }, expect.any(Object))
     resolveRequest(refreshedResponse())
 
     await expect(first).resolves.toMatchObject({ access_token: 'new-access' })

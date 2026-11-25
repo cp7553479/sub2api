@@ -16,20 +16,6 @@
           </p>
         </div>
         <div>
-          <label for="old_password" class="input-label">
-            {{ t('profile.currentPassword') }}
-          </label>
-          <input
-            id="old_password"
-            v-model="form.old_password"
-            type="password"
-            required
-            autocomplete="current-password"
-            class="input"
-          />
-        </div>
-
-        <div>
           <label for="new_password" class="input-label">
             {{ t('profile.newPassword') }}
           </label>
@@ -42,7 +28,7 @@
             class="input"
           />
           <p class="input-hint">
-            {{ t('profile.passwordHint') }}
+            {{ t('auth.passwordHint') }}
           </p>
         </div>
 
@@ -74,7 +60,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { userAPI } from '@/api'
+import { authAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
@@ -87,7 +73,6 @@ const props = withDefaults(defineProps<{
 
 const loading = ref(false)
 const form = ref({
-  old_password: '',
   new_password: '',
   confirm_password: ''
 })
@@ -98,15 +83,15 @@ const handleChangePassword = async () => {
     return
   }
 
-  if (form.value.new_password.length < 8) {
-    appStore.showError(t('profile.passwordTooShort'))
+  if (form.value.new_password.length < 6) {
+    appStore.showError(t('auth.passwordMinLength'))
     return
   }
 
   loading.value = true
   try {
-    await userAPI.changePassword(form.value.old_password, form.value.new_password)
-    form.value = { old_password: '', new_password: '', confirm_password: '' }
+    await authAPI.updateAccount({ password: form.value.new_password })
+    form.value = { new_password: '', confirm_password: '' }
     appStore.showSuccess(t('profile.passwordChangeSuccess'))
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t('profile.passwordChangeFailed')))

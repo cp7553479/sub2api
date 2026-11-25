@@ -1,13 +1,15 @@
 package service
 
 import (
+	"context"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/google/uuid"
 )
 
 type User struct {
 	ID             int64
+	SupabaseUserID string
 	Email          string
 	Username       string
 	Notes          string
@@ -16,7 +18,6 @@ type User struct {
 	AvatarMIME     string
 	AvatarByteSize int
 	AvatarSHA256   string
-	PasswordHash   string
 	Role           string
 	Balance        float64
 	FrozenBalance  float64
@@ -27,10 +28,6 @@ type User struct {
 	// ones listed in AllowedGroups. False keeps the default, where every public
 	// group is bindable.
 	RestrictPublicGroups bool
-	TokenVersion         int64 // Incremented on password change to invalidate existing tokens
-	// TokenVersionResolved indicates TokenVersion already contains the fingerprint-derived
-	// value expected in JWT claims and refresh-token state.
-	TokenVersionResolved bool
 	SignupSource         string
 	LastLoginAt          *time.Time
 	LastActiveAt         *time.Time
@@ -42,11 +39,6 @@ type User struct {
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]rateMultiplier
 	GroupRates map[int64]float64
-
-	// TOTP 双因素认证字段
-	TotpSecretEncrypted *string    // AES-256-GCM 加密的 TOTP 密钥
-	TotpEnabled         bool       // 是否启用 TOTP
-	TotpEnabledAt       *time.Time // TOTP 启用时间
 
 	// 余额不足通知
 	BalanceNotifyEnabled       bool
@@ -69,6 +61,10 @@ type User struct {
 
 	APIKeys       []APIKey
 	Subscriptions []UserSubscription
+}
+
+type UserBindingRepository interface {
+	GetOrCreateSupabaseUser(ctx context.Context, userID uuid.UUID) (*User, error)
 }
 
 func (u *User) IsAdmin() bool {
@@ -97,17 +93,4 @@ func (u *User) CanBindGroup(groupID int64, isExclusive bool) bool {
 		}
 	}
 	return false
-}
-
-func (u *User) SetPassword(password string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	u.PasswordHash = string(hash)
-	return nil
-}
-
-func (u *User) CheckPassword(password string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) == nil
 }

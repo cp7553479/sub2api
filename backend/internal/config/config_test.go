@@ -15,13 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func resetViperWithJWTSecret(t *testing.T) {
+func resetViperForTest(t *testing.T) {
 	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	t.Setenv("CONFIG_FILE", "")
 	t.Setenv("DATA_DIR", "")
-	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
 	stubMemoryLimit(t, 0)
 }
 
@@ -42,7 +41,7 @@ func TestAutoRequestBodyMemoryBudget(t *testing.T) {
 
 func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	t.Run("auto-sized from memory limit when unset", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		cfg, err := Load()
 		require.NoError(t, err)
@@ -50,7 +49,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("explicit environment value wins, including 0", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		t.Setenv("GATEWAY_REQUEST_BODY_MEMORY_BUDGET_BYTES", "0")
 		cfg, err := Load()
@@ -59,7 +58,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("empty environment value is ignored like viper does", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		t.Setenv("GATEWAY_REQUEST_BODY_MEMORY_BUDGET_BYTES", "")
 		cfg, err := Load()
@@ -68,7 +67,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("explicit environment value wins over auto-sizing", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		t.Setenv("GATEWAY_REQUEST_BODY_MEMORY_BUDGET_BYTES", "2147483648")
 		cfg, err := Load()
@@ -77,7 +76,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("explicit config file 0 disables the budget", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		configFile := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(configFile, []byte("gateway:\n  request_body_memory_budget_bytes: 0\n"), 0o600))
@@ -88,7 +87,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("config file without the key is auto-sized", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		configFile := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(configFile, []byte("gateway:\n  max_body_size: 268435456\n"), 0o600))
@@ -99,7 +98,7 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 	})
 
 	t.Run("explicit config file value wins", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		stubMemoryLimit(t, 128<<30)
 		configFile := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(configFile, []byte("gateway:\n  request_body_memory_budget_bytes: 1073741824\n"), 0o600))
@@ -111,21 +110,21 @@ func TestLoadRequestBodyMemoryBudget(t *testing.T) {
 }
 
 func TestLoadDefaultModelsListReadMaxBytes(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	require.Equal(t, DefaultModelsListReadMaxBytes, cfg.Gateway.ModelsListReadMaxBytes)
 }
 
 func TestLoadDefaultMinOutputTokens(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	require.Equal(t, 128, cfg.Gateway.MinOutputTokens)
 }
 
 func TestLoadMinOutputTokensFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_MIN_OUTPUT_TOKENS", "16")
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -133,12 +132,12 @@ func TestLoadMinOutputTokensFromEnv(t *testing.T) {
 }
 
 func TestLoadGeminiSameAccountRetries(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	require.Equal(t, 4, cfg.Gateway.MaxSameAccountRetriesGemini)
 
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_MAX_SAME_ACCOUNT_RETRIES_GEMINI", "0")
 	cfg, err = Load()
 	require.NoError(t, err)
@@ -146,7 +145,7 @@ func TestLoadGeminiSameAccountRetries(t *testing.T) {
 }
 
 func TestValidateMinOutputTokensMinimum(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	cfg.Gateway.MinOutputTokens = 15
@@ -169,7 +168,7 @@ func TestLoadTimezonePrecedence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resetViperWithJWTSecret(t)
+			resetViperForTest(t)
 			t.Setenv("TIMEZONE", tt.timezoneEnv)
 			t.Setenv("TZ", tt.tzEnv)
 			if tt.fileTimezone != "" {
@@ -187,14 +186,14 @@ func TestLoadTimezonePrecedence(t *testing.T) {
 
 func TestLoadServerTimingConfig(t *testing.T) {
 	t.Run("disabled by default", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		cfg, err := Load()
 		require.NoError(t, err)
 		require.False(t, cfg.Server.EnableServerTiming)
 	})
 
 	t.Run("enabled by exact environment variable", func(t *testing.T) {
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		t.Setenv("ENABLE_SERVER_TIMING", "true")
 		cfg, err := Load()
 		require.NoError(t, err)
@@ -203,7 +202,7 @@ func TestLoadServerTimingConfig(t *testing.T) {
 }
 
 func TestLoadSimpleModeKeyRateLimitEnabledFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("SIMPLE_MODE_KEY_RATE_LIMIT_ENABLED", "true")
 
 	cfg, err := Load()
@@ -212,7 +211,7 @@ func TestLoadSimpleModeKeyRateLimitEnabledFromEnvironment(t *testing.T) {
 }
 
 func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("REDIS_USERNAME", "app-user")
 
 	cfg, err := Load()
@@ -221,7 +220,7 @@ func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
 }
 
 func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	require.Equal(t, 10, cfg.Server.ReadHeaderTimeout)
@@ -265,7 +264,7 @@ func TestNormalizeForwardedClientIPHeadersLimit(t *testing.T) {
 }
 
 func TestLoadForwardedClientIPHeadersNormalizesAndSnapshots(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	viper.Set("security.forwarded_client_ip_headers", []string{" x-cdn-ip ", "X-CDN-IP", "true-client-ip"})
 
 	cfg, err := Load()
@@ -327,7 +326,7 @@ func TestForwardedClientIPSettingsConcurrentPublication(t *testing.T) {
 }
 
 func TestLoadForwardedClientIPHeadersFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", " x-cdn-ip , X-CDN-IP, true-client-ip ")
 
 	cfg, err := Load()
@@ -336,7 +335,7 @@ func TestLoadForwardedClientIPHeadersFromEnvironment(t *testing.T) {
 }
 
 func TestLoadExplicitEmptyForwardedClientIPHeadersFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	viper.Set("security.forwarded_client_ip_headers", []string{"X-Yaml-IP"})
 	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", "")
 
@@ -346,7 +345,7 @@ func TestLoadExplicitEmptyForwardedClientIPHeadersFromEnvironment(t *testing.T) 
 }
 
 func TestLoadRejectsInvalidForwardedClientIPHeaderFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", "X-Valid-IP, X Invalid")
 
 	_, err := Load()
@@ -354,7 +353,7 @@ func TestLoadRejectsInvalidForwardedClientIPHeaderFromEnvironment(t *testing.T) 
 }
 
 func TestLoadRejectsInvalidForwardedClientIPHeader(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	viper.Set("security.forwarded_client_ip_headers", []string{"X Invalid"})
 
 	_, err := Load()
@@ -362,7 +361,7 @@ func TestLoadRejectsInvalidForwardedClientIPHeader(t *testing.T) {
 }
 
 func TestLoadExplicitEmptyTrustedProxiesEnablesConfiguredMode(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	viper.Set("server.trusted_proxies", []string{})
 
 	cfg, err := Load()
@@ -372,7 +371,7 @@ func TestLoadExplicitEmptyTrustedProxiesEnablesConfiguredMode(t *testing.T) {
 }
 
 func TestLoadExplicitTrustedProxiesEnablesConfiguredMode(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	viper.Set("server.trusted_proxies", []string{"127.0.0.1/32"})
 
 	cfg, err := Load()
@@ -382,7 +381,7 @@ func TestLoadExplicitTrustedProxiesEnablesConfiguredMode(t *testing.T) {
 }
 
 func TestLoadTrustedProxiesFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("SERVER_TRUSTED_PROXIES", "127.0.0.1/32, ::1/128")
 
 	cfg, err := Load()
@@ -392,7 +391,7 @@ func TestLoadTrustedProxiesFromEnvironment(t *testing.T) {
 }
 
 func TestLoadExplicitEmptyTrustedProxiesFromEnvironment(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("SERVER_TRUSTED_PROXIES", "")
 
 	cfg, err := Load()
@@ -420,7 +419,7 @@ func TestLoadTrustedProxiesPresenceFromYAML(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resetViperWithJWTSecret(t)
+			resetViperForTest(t)
 			configDir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(test.yaml), 0o600))
 			t.Setenv("DATA_DIR", configDir)
@@ -434,7 +433,7 @@ func TestLoadTrustedProxiesPresenceFromYAML(t *testing.T) {
 }
 
 func TestLoadTrustedProxiesFromConfigFile(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	configFile := filepath.Join(t.TempDir(), "reporter-config.yaml")
 	require.NoError(t, os.WriteFile(configFile, []byte(`server:
   host: 192.0.2.10
@@ -454,7 +453,7 @@ func TestLoadTrustedProxiesFromConfigFile(t *testing.T) {
 }
 
 func TestConfigFileTakesPrecedenceOverDataDir(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	dataDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "config.yaml"), []byte("server:\n  host: 192.0.2.20\n"), 0o600))
 	configFile := filepath.Join(t.TempDir(), "explicit.yaml")
@@ -468,27 +467,11 @@ func TestConfigFileTakesPrecedenceOverDataDir(t *testing.T) {
 }
 
 func TestLoadReturnsErrorForMissingConfigFile(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("CONFIG_FILE", filepath.Join(t.TempDir(), "missing.yaml"))
 
 	_, err := Load()
 	require.ErrorContains(t, err, "read config error")
-}
-
-func TestLoadForBootstrapAllowsMissingJWTSecret(t *testing.T) {
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	t.Setenv("CONFIG_FILE", "")
-	t.Setenv("DATA_DIR", "")
-	t.Setenv("JWT_SECRET", "")
-
-	cfg, err := LoadForBootstrap()
-	if err != nil {
-		t.Fatalf("LoadForBootstrap() error: %v", err)
-	}
-	if cfg.JWT.Secret != "" {
-		t.Fatalf("LoadForBootstrap() should keep empty jwt.secret during bootstrap")
-	}
 }
 
 func TestNormalizeRunMode(t *testing.T) {
@@ -512,7 +495,7 @@ func TestNormalizeRunMode(t *testing.T) {
 }
 
 func TestLoadDefaultSchedulingConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -543,7 +526,7 @@ func TestLoadDefaultSchedulingConfig(t *testing.T) {
 }
 
 func TestLoadDefaultOpenAIFirstOutputTimeoutsDisabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -552,7 +535,7 @@ func TestLoadDefaultOpenAIFirstOutputTimeoutsDisabled(t *testing.T) {
 }
 
 func TestLoadOpenAIFirstOutputTimeoutsFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_FIRST_OUTPUT_TIMEOUT_SECONDS", "90")
 	t.Setenv("GATEWAY_OPENAI_HIGH_EFFORT_FIRST_OUTPUT_TIMEOUT_SECONDS", "240")
 
@@ -563,7 +546,7 @@ func TestLoadOpenAIFirstOutputTimeoutsFromEnv(t *testing.T) {
 }
 
 func TestValidateOpenAIFirstOutputTimeoutMinimum(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	require.NoError(t, err)
 	cfg.Gateway.OpenAIFirstOutputTimeoutSeconds = 30
@@ -571,7 +554,7 @@ func TestValidateOpenAIFirstOutputTimeoutMinimum(t *testing.T) {
 }
 
 func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -690,7 +673,7 @@ func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 }
 
 func TestLoadOpenAIWSClientFirstMessageTimeoutFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_WS_CLIENT_FIRST_MESSAGE_TIMEOUT_SECONDS", "120")
 
 	cfg, err := Load()
@@ -699,7 +682,7 @@ func TestLoadOpenAIWSClientFirstMessageTimeoutFromEnv(t *testing.T) {
 }
 
 func TestLoadOpenAIWSForceHTTPFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_WS_FORCE_HTTP", "true")
 
 	cfg, err := Load()
@@ -708,7 +691,7 @@ func TestLoadOpenAIWSForceHTTPFromEnv(t *testing.T) {
 }
 
 func TestLoadDefaultOpenAICompactModel(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -716,7 +699,7 @@ func TestLoadDefaultOpenAICompactModel(t *testing.T) {
 }
 
 func TestLoadOpenAICompactModelFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_COMPACT_MODEL", "gpt-5.3-codex")
 
 	cfg, err := Load()
@@ -725,7 +708,7 @@ func TestLoadOpenAICompactModelFromEnv(t *testing.T) {
 }
 
 func TestLoadDefaultGrokFreeQuotaSoftGate(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -738,7 +721,7 @@ func TestLoadDefaultGrokFreeQuotaSoftGate(t *testing.T) {
 }
 
 func TestLoadDefaultOpenAIHTTP2Enabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -751,7 +734,7 @@ func TestLoadDefaultOpenAIHTTP2Enabled(t *testing.T) {
 }
 
 func TestLoadOpenAIProxyStreamCircuitFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_PROXY_STREAM_CIRCUIT_DISABLED", "true")
 	t.Setenv("GATEWAY_OPENAI_PROXY_STREAM_CIRCUIT_FAILURE_THRESHOLD", "3")
 	t.Setenv("GATEWAY_OPENAI_PROXY_STREAM_CIRCUIT_WINDOW_SECONDS", "90")
@@ -766,7 +749,7 @@ func TestLoadOpenAIProxyStreamCircuitFromEnv(t *testing.T) {
 }
 
 func TestLoadOpenAIHTTP2DisabledFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_HTTP2_ENABLED", "false")
 
 	cfg, err := Load()
@@ -775,7 +758,7 @@ func TestLoadOpenAIHTTP2DisabledFromEnv(t *testing.T) {
 }
 
 func TestLoadDefaultOpenAIResponseHeaderTimeoutUnlimited(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -783,7 +766,7 @@ func TestLoadDefaultOpenAIResponseHeaderTimeoutUnlimited(t *testing.T) {
 }
 
 func TestLoadOpenAIResponseHeaderTimeoutFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT", "1800")
 
 	cfg, err := Load()
@@ -792,7 +775,7 @@ func TestLoadOpenAIResponseHeaderTimeoutFromEnv(t *testing.T) {
 }
 
 func TestLoadImageNonstreamKeepaliveFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_IMAGE_NONSTREAM_KEEPALIVE_INTERVAL", "15")
 
 	cfg, err := Load()
@@ -801,7 +784,7 @@ func TestLoadImageNonstreamKeepaliveFromEnv(t *testing.T) {
 }
 
 func TestLoadOpenAIWSStickyTTLCompatibility(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_OPENAI_WS_STICKY_RESPONSE_ID_TTL_SECONDS", "0")
 	t.Setenv("GATEWAY_OPENAI_WS_STICKY_PREVIOUS_RESPONSE_TTL_SECONDS", "7200")
 
@@ -816,7 +799,7 @@ func TestLoadOpenAIWSStickyTTLCompatibility(t *testing.T) {
 }
 
 func TestLoadDefaultIdempotencyConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -835,7 +818,7 @@ func TestLoadDefaultIdempotencyConfig(t *testing.T) {
 }
 
 func TestLoadDefaultBatchImageQueueDisabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -843,7 +826,7 @@ func TestLoadDefaultBatchImageQueueDisabled(t *testing.T) {
 }
 
 func TestLoadIdempotencyConfigFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("IDEMPOTENCY_OBSERVE_ONLY", "false")
 	t.Setenv("IDEMPOTENCY_DEFAULT_TTL_SECONDS", "600")
 
@@ -860,7 +843,7 @@ func TestLoadIdempotencyConfigFromEnv(t *testing.T) {
 }
 
 func TestLoadSchedulingConfigFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	t.Setenv("GATEWAY_SCHEDULING_STICKY_SESSION_MAX_WAITING", "5")
 
 	cfg, err := Load()
@@ -873,54 +856,8 @@ func TestLoadSchedulingConfigFromEnv(t *testing.T) {
 	}
 }
 
-func TestLoadWeChatConnectConfigFromLegacyEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	t.Setenv("WECHAT_OAUTH_OPEN_APP_ID", "wx-open-app")
-	t.Setenv("WECHAT_OAUTH_OPEN_APP_SECRET", "wx-open-secret")
-	t.Setenv("WECHAT_OAUTH_MP_APP_ID", "wx-mp-app")
-	t.Setenv("WECHAT_OAUTH_MP_APP_SECRET", "wx-mp-secret")
-	t.Setenv("WECHAT_OAUTH_FRONTEND_REDIRECT_URL", "/auth/wechat/legacy-callback")
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	require.True(t, cfg.WeChat.Enabled)
-	require.True(t, cfg.WeChat.OpenEnabled)
-	require.True(t, cfg.WeChat.MPEnabled)
-	require.False(t, cfg.WeChat.MobileEnabled)
-	require.Equal(t, "open", cfg.WeChat.Mode)
-	require.Equal(t, "wx-open-app", cfg.WeChat.OpenAppID)
-	require.Equal(t, "wx-open-secret", cfg.WeChat.OpenAppSecret)
-	require.Equal(t, "wx-mp-app", cfg.WeChat.MPAppID)
-	require.Equal(t, "wx-mp-secret", cfg.WeChat.MPAppSecret)
-	require.Equal(t, "/auth/wechat/legacy-callback", cfg.WeChat.FrontendRedirectURL)
-}
-
-func TestLoadDefaultOIDCSecurityDefaults(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	require.True(t, cfg.OIDC.UsePKCE)
-	require.True(t, cfg.OIDC.ValidateIDToken)
-	require.False(t, cfg.OIDC.UsePKCEExplicit)
-	require.False(t, cfg.OIDC.ValidateIDTokenExplicit)
-}
-
-func TestLoadExplicitOIDCSecurityDefaultsFromEnvMarksFlagsExplicit(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	t.Setenv("OIDC_CONNECT_USE_PKCE", "false")
-	t.Setenv("OIDC_CONNECT_VALIDATE_ID_TOKEN", "false")
-
-	cfg, err := Load()
-	require.NoError(t, err)
-	require.False(t, cfg.OIDC.UsePKCE)
-	require.False(t, cfg.OIDC.ValidateIDToken)
-	require.True(t, cfg.OIDC.UsePKCEExplicit)
-	require.True(t, cfg.OIDC.ValidateIDTokenExplicit)
-}
-
 func TestLoadForcedCodexInstructionsTemplate(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	tempDir := t.TempDir()
 	templatePath := filepath.Join(tempDir, "codex-instructions.md.tmpl")
@@ -938,7 +875,7 @@ func TestLoadForcedCodexInstructionsTemplate(t *testing.T) {
 }
 
 func TestLoadDefaultSecurityToggles(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -989,7 +926,7 @@ func TestLoadDefaultSecurityToggles(t *testing.T) {
 }
 
 func TestLoadDefaultServerMode(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1001,38 +938,8 @@ func TestLoadDefaultServerMode(t *testing.T) {
 	}
 }
 
-func TestLoadDefaultJWTAccessTokenExpireMinutes(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	if cfg.JWT.ExpireHour != 24 {
-		t.Fatalf("JWT.ExpireHour = %d, want 24", cfg.JWT.ExpireHour)
-	}
-	if cfg.JWT.AccessTokenExpireMinutes != 0 {
-		t.Fatalf("JWT.AccessTokenExpireMinutes = %d, want 0", cfg.JWT.AccessTokenExpireMinutes)
-	}
-}
-
-func TestLoadJWTAccessTokenExpireMinutesFromEnv(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	t.Setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "90")
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	if cfg.JWT.AccessTokenExpireMinutes != 90 {
-		t.Fatalf("JWT.AccessTokenExpireMinutes = %d, want 90", cfg.JWT.AccessTokenExpireMinutes)
-	}
-}
-
 func TestLoadDefaultDatabaseSSLMode(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1044,140 +951,8 @@ func TestLoadDefaultDatabaseSSLMode(t *testing.T) {
 	}
 }
 
-func TestValidateLinuxDoFrontendRedirectURL(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "test-client"
-	cfg.LinuxDo.ClientSecret = "test-secret"
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "client_secret_post"
-	cfg.LinuxDo.UsePKCE = true
-
-	cfg.LinuxDo.FrontendRedirectURL = "javascript:alert(1)"
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatalf("Validate() expected error for javascript scheme, got nil")
-	}
-	if !strings.Contains(err.Error(), "linuxdo_connect.frontend_redirect_url") {
-		t.Fatalf("Validate() expected frontend_redirect_url error, got: %v", err)
-	}
-}
-
-func TestValidateLinuxDoAllowsDisablingPKCEForCompatibility(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "test-client"
-	cfg.LinuxDo.ClientSecret = ""
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.FrontendRedirectURL = "/auth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "none"
-	cfg.LinuxDo.UsePKCE = false
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected LinuxDo config without PKCE to pass for compatibility, got: %v", err)
-	}
-}
-
-func TestValidateOIDCScopesMustContainOpenID(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = "https://issuer.example.com/auth"
-	cfg.OIDC.TokenURL = "https://issuer.example.com/token"
-	cfg.OIDC.JWKSURL = "https://issuer.example.com/jwks"
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "profile email"
-	cfg.OIDC.UsePKCE = true
-
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatalf("Validate() expected error when scopes do not include openid, got nil")
-	}
-	if !strings.Contains(err.Error(), "oidc_connect.scopes") {
-		t.Fatalf("Validate() expected oidc_connect.scopes error, got: %v", err)
-	}
-}
-
-func TestValidateOIDCAllowsIssuerOnlyEndpointsWithDiscoveryFallback(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = ""
-	cfg.OIDC.TokenURL = ""
-	cfg.OIDC.JWKSURL = ""
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "openid email profile"
-	cfg.OIDC.ValidateIDToken = true
-	cfg.OIDC.UsePKCE = true
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected issuer-only OIDC config to pass with discovery fallback, got: %v", err)
-	}
-}
-
-func TestValidateOIDCAllowsExplicitCompatibilityOverridesForPKCEAndIDTokenValidation(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.OIDC.Enabled = true
-	cfg.OIDC.ClientID = "oidc-client"
-	cfg.OIDC.ClientSecret = "oidc-secret"
-	cfg.OIDC.IssuerURL = "https://issuer.example.com"
-	cfg.OIDC.AuthorizeURL = "https://issuer.example.com/auth"
-	cfg.OIDC.TokenURL = "https://issuer.example.com/token"
-	cfg.OIDC.UserInfoURL = "https://issuer.example.com/userinfo"
-	cfg.OIDC.RedirectURL = "https://example.com/api/v1/auth/oauth/oidc/callback"
-	cfg.OIDC.FrontendRedirectURL = "/auth/oidc/callback"
-	cfg.OIDC.Scopes = "openid email profile"
-	cfg.OIDC.UsePKCE = false
-	cfg.OIDC.ValidateIDToken = false
-	cfg.OIDC.JWKSURL = ""
-	cfg.OIDC.AllowedSigningAlgs = ""
-
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() expected OIDC config without PKCE/id_token validation to pass for compatibility, got: %v", err)
-	}
-}
-
 func TestLoadDefaultDashboardCacheConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1202,7 +977,7 @@ func TestLoadDefaultDashboardCacheConfig(t *testing.T) {
 }
 
 func TestValidateDashboardCacheConfigEnabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1222,7 +997,7 @@ func TestValidateDashboardCacheConfigEnabled(t *testing.T) {
 }
 
 func TestValidateDashboardCacheConfigDisabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1241,7 +1016,7 @@ func TestValidateDashboardCacheConfigDisabled(t *testing.T) {
 }
 
 func TestLoadDefaultDashboardAggregationConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1281,7 +1056,7 @@ func TestLoadDefaultDashboardAggregationConfig(t *testing.T) {
 }
 
 func TestValidateDashboardAggregationConfigDisabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1300,7 +1075,7 @@ func TestValidateDashboardAggregationConfigDisabled(t *testing.T) {
 }
 
 func TestValidateDashboardAggregationBackfillMaxDays(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1319,7 +1094,7 @@ func TestValidateDashboardAggregationBackfillMaxDays(t *testing.T) {
 }
 
 func TestLoadDefaultUsageCleanupConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1344,7 +1119,7 @@ func TestLoadDefaultUsageCleanupConfig(t *testing.T) {
 }
 
 func TestLoadDefaultOpsCleanupConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1359,7 +1134,7 @@ func TestLoadDefaultOpsCleanupConfig(t *testing.T) {
 }
 
 func TestValidateUsageCleanupConfigEnabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1378,7 +1153,7 @@ func TestValidateUsageCleanupConfigEnabled(t *testing.T) {
 }
 
 func TestValidateUsageCleanupConfigDisabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1490,7 +1265,7 @@ func TestValidateAbsoluteHTTPURL(t *testing.T) {
 }
 
 func TestValidateServerFrontendURL(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1523,42 +1298,14 @@ func TestValidateServerFrontendURL(t *testing.T) {
 	}
 }
 
-func TestValidateFrontendRedirectURL(t *testing.T) {
-	if err := ValidateFrontendRedirectURL("/auth/callback"); err != nil {
-		t.Fatalf("ValidateFrontendRedirectURL relative error: %v", err)
-	}
-	if err := ValidateFrontendRedirectURL("https://example.com/auth"); err != nil {
-		t.Fatalf("ValidateFrontendRedirectURL absolute error: %v", err)
-	}
-	if err := ValidateFrontendRedirectURL("example.com/path"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject non-absolute url")
-	}
-	if err := ValidateFrontendRedirectURL("//evil.com"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject // prefix")
-	}
-	if err := ValidateFrontendRedirectURL("javascript:alert(1)"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject javascript scheme")
-	}
-}
-
 func TestWarnIfInsecureURL(t *testing.T) {
 	warnIfInsecureURL("test", "http://example.com")
 	warnIfInsecureURL("test", "bad://url")
 	warnIfInsecureURL("test", "://invalid")
 }
 
-func TestGenerateJWTSecretDefaultLength(t *testing.T) {
-	secret, err := generateJWTSecret(0)
-	if err != nil {
-		t.Fatalf("generateJWTSecret error: %v", err)
-	}
-	if len(secret) == 0 {
-		t.Fatalf("generateJWTSecret returned empty string")
-	}
-}
-
 func TestValidateOpsCleanupScheduleRequired(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1576,7 +1323,7 @@ func TestValidateOpsCleanupScheduleRequired(t *testing.T) {
 }
 
 func TestValidateConcurrencyPingInterval(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -1593,55 +1340,9 @@ func TestValidateConcurrencyPingInterval(t *testing.T) {
 }
 
 func TestProvideConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	if _, err := ProvideConfig(); err != nil {
 		t.Fatalf("ProvideConfig() error: %v", err)
-	}
-}
-
-func TestValidateConfigWithLinuxDoEnabled(t *testing.T) {
-	resetViperWithJWTSecret(t)
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	cfg.Security.CSP.Enabled = true
-	cfg.Security.CSP.Policy = "default-src 'self'"
-
-	cfg.LinuxDo.Enabled = true
-	cfg.LinuxDo.ClientID = "client"
-	cfg.LinuxDo.ClientSecret = "secret"
-	cfg.LinuxDo.AuthorizeURL = "https://example.com/oauth2/authorize"
-	cfg.LinuxDo.TokenURL = "https://example.com/oauth2/token"
-	cfg.LinuxDo.UserInfoURL = "https://example.com/oauth2/userinfo"
-	cfg.LinuxDo.RedirectURL = "https://example.com/api/v1/auth/oauth/linuxdo/callback"
-	cfg.LinuxDo.FrontendRedirectURL = "/auth/linuxdo/callback"
-	cfg.LinuxDo.TokenAuthMethod = "client_secret_post"
-	cfg.LinuxDo.UsePKCE = true
-
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Validate() unexpected error: %v", err)
-	}
-}
-
-func TestValidateJWTSecretStrength(t *testing.T) {
-	if !isWeakJWTSecret("change-me-in-production") {
-		t.Fatalf("isWeakJWTSecret should detect weak secret")
-	}
-	if isWeakJWTSecret("StrongSecretValue") {
-		t.Fatalf("isWeakJWTSecret should accept strong secret")
-	}
-}
-
-func TestGenerateJWTSecretWithLength(t *testing.T) {
-	secret, err := generateJWTSecret(16)
-	if err != nil {
-		t.Fatalf("generateJWTSecret error: %v", err)
-	}
-	if len(secret) == 0 {
-		t.Fatalf("generateJWTSecret returned empty string")
 	}
 }
 
@@ -1669,51 +1370,14 @@ func TestValidateAbsoluteHTTPURLMissingHost(t *testing.T) {
 	}
 }
 
-func TestValidateFrontendRedirectURLInvalidChars(t *testing.T) {
-	if err := ValidateFrontendRedirectURL("/auth/\ncallback"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject invalid chars")
-	}
-	if err := ValidateFrontendRedirectURL("http://"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject missing host")
-	}
-	if err := ValidateFrontendRedirectURL("mailto:user@example.com"); err == nil {
-		t.Fatalf("ValidateFrontendRedirectURL should reject mailto")
-	}
-}
-
 func TestWarnIfInsecureURLHTTPS(t *testing.T) {
 	warnIfInsecureURL("secure", "https://example.com")
-}
-
-func TestValidateJWTSecret_UTF8Bytes(t *testing.T) {
-	resetViperWithJWTSecret(t)
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load() error: %v", err)
-	}
-
-	// 31 bytes (< 32) even though it's 31 characters.
-	cfg.JWT.Secret = strings.Repeat("a", 31)
-	err = cfg.Validate()
-	if err == nil {
-		t.Fatalf("Validate() should reject 31-byte secret")
-	}
-	if !strings.Contains(err.Error(), "at least 32 bytes") {
-		t.Fatalf("Validate() error = %v", err)
-	}
-
-	// 32 bytes OK.
-	cfg.JWT.Secret = strings.Repeat("a", 32)
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("Validate() should accept 32-byte secret: %v", err)
-	}
 }
 
 func TestValidateConfigErrors(t *testing.T) {
 	buildValid := func(t *testing.T) *Config {
 		t.Helper()
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		cfg, err := Load()
 		if err != nil {
 			t.Fatalf("Load() error: %v", err)
@@ -1782,16 +1446,6 @@ func TestValidateConfigErrors(t *testing.T) {
 			wantErr: "api_key_auth_cache.invalid_abuse.capacity",
 		},
 		{
-			name:    "jwt secret required",
-			mutate:  func(c *Config) { c.JWT.Secret = "" },
-			wantErr: "jwt.secret is required",
-		},
-		{
-			name:    "jwt secret min bytes",
-			mutate:  func(c *Config) { c.JWT.Secret = strings.Repeat("a", 31) },
-			wantErr: "jwt.secret must be at least 32 bytes",
-		},
-		{
 			name:    "subscription maintenance worker_count non-negative",
 			mutate:  func(c *Config) { c.SubscriptionMaintenance.WorkerCount = -1 },
 			wantErr: "subscription_maintenance.worker_count",
@@ -1802,49 +1456,9 @@ func TestValidateConfigErrors(t *testing.T) {
 			wantErr: "subscription_maintenance.queue_size",
 		},
 		{
-			name:    "jwt expire hour positive",
-			mutate:  func(c *Config) { c.JWT.ExpireHour = 0 },
-			wantErr: "jwt.expire_hour must be positive",
-		},
-		{
-			name:    "jwt expire hour max",
-			mutate:  func(c *Config) { c.JWT.ExpireHour = 200 },
-			wantErr: "jwt.expire_hour must be <= 168",
-		},
-		{
-			name:    "jwt access token expire minutes non-negative",
-			mutate:  func(c *Config) { c.JWT.AccessTokenExpireMinutes = -1 },
-			wantErr: "jwt.access_token_expire_minutes must be non-negative",
-		},
-		{
 			name:    "csp policy required",
 			mutate:  func(c *Config) { c.Security.CSP.Enabled = true; c.Security.CSP.Policy = "" },
 			wantErr: "security.csp.policy",
-		},
-		{
-			name: "linuxdo client id required",
-			mutate: func(c *Config) {
-				c.LinuxDo.Enabled = true
-				c.LinuxDo.UsePKCE = true
-				c.LinuxDo.ClientID = ""
-			},
-			wantErr: "linuxdo_connect.client_id",
-		},
-		{
-			name: "linuxdo token auth method",
-			mutate: func(c *Config) {
-				c.LinuxDo.Enabled = true
-				c.LinuxDo.UsePKCE = true
-				c.LinuxDo.ClientID = "client"
-				c.LinuxDo.ClientSecret = "secret"
-				c.LinuxDo.AuthorizeURL = "https://example.com/authorize"
-				c.LinuxDo.TokenURL = "https://example.com/token"
-				c.LinuxDo.UserInfoURL = "https://example.com/userinfo"
-				c.LinuxDo.RedirectURL = "https://example.com/callback"
-				c.LinuxDo.FrontendRedirectURL = "/auth/callback"
-				c.LinuxDo.TokenAuthMethod = "invalid"
-			},
-			wantErr: "linuxdo_connect.token_auth_method",
 		},
 		{
 			name:    "billing circuit breaker threshold",
@@ -2351,7 +1965,7 @@ func TestValidateConfigErrors(t *testing.T) {
 func TestValidateConfig_OpenAIWSRules(t *testing.T) {
 	buildValid := func(t *testing.T) *Config {
 		t.Helper()
-		resetViperWithJWTSecret(t)
+		resetViperForTest(t)
 		cfg, err := Load()
 		require.NoError(t, err)
 		return cfg
@@ -2620,7 +2234,7 @@ func TestValidateConfig_OpenAIWSRules(t *testing.T) {
 }
 
 func TestValidateConfig_AutoScaleDisabledIgnoreAutoScaleFields(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
@@ -2645,7 +2259,7 @@ func TestValidateConfig_AutoScaleDisabledIgnoreAutoScaleFields(t *testing.T) {
 }
 
 func TestValidateConfig_LogRequiredAndRotationBounds(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 
 	cases := []struct {
 		name    string
@@ -2713,7 +2327,7 @@ func TestValidateConfig_LogRequiredAndRotationBounds(t *testing.T) {
 }
 
 func TestLoad_DefaultGatewayUsageRecordConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
@@ -2763,7 +2377,7 @@ func TestLoad_DefaultGatewayUsageRecordConfig(t *testing.T) {
 }
 
 func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
-	resetViperWithJWTSecret(t)
+	resetViperForTest(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
@@ -2807,7 +2421,7 @@ func TestLoadSimpleModeAutoCreateDefaultGroups(t *testing.T) {
 	for _, loader := range []struct {
 		name string
 		load func() (*Config, error)
-	}{{"Load", Load}, {"LoadForBootstrap", LoadForBootstrap}} {
+	}{{"Load", Load}} {
 		t.Run(loader.name, func(t *testing.T) {
 			for _, tt := range []struct {
 				name  string
@@ -2825,7 +2439,7 @@ func TestLoadSimpleModeAutoCreateDefaultGroups(t *testing.T) {
 				{name: "env true overrides yaml false", yaml: "simple_mode:\n  auto_create_default_groups: false\n", env: "true", want: true},
 			} {
 				t.Run(tt.name, func(t *testing.T) {
-					resetViperWithJWTSecret(t)
+					resetViperForTest(t)
 					t.Setenv("SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS", tt.env)
 					if tt.unset {
 						require.NoError(t, os.Unsetenv("SIMPLE_MODE_AUTO_CREATE_DEFAULT_GROUPS"))

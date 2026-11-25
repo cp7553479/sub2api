@@ -51,12 +51,12 @@ func TestAffiliateRepository_TransferQuotaToBalance_UsesClaimedQuotaBeforeClear(
 	repo := NewAffiliateRepository(client, integrationDB)
 
 	u := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-transfer-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Balance:      5.5,
-		Concurrency:  5,
+		Email: fmt.Sprintf("affiliate-transfer-%d@example.com", time.Now().UnixNano()),
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     5.5,
+		Concurrency: 5,
 	})
 
 	affCode := fmt.Sprintf("AFF%09d", time.Now().UnixNano()%1_000_000_000)
@@ -124,18 +124,18 @@ func TestAffiliateRepository_AccrueQuota_ReusesOuterTransaction(t *testing.T) {
 	txCtx := dbent.NewTxContext(ctx, outerTx)
 
 	inviter := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-inviter-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Concurrency:  5,
+		Email: fmt.Sprintf("affiliate-inviter-%d@example.com", time.Now().UnixNano()),
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Concurrency: 5,
 	})
 	invitee := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-invitee-%d@example.com", time.Now().UnixNano()+1),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Concurrency:  5,
+		Email: fmt.Sprintf("affiliate-invitee-%d@example.com", time.Now().UnixNano()+1),
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Concurrency: 5,
 	})
 
 	repo := NewAffiliateRepository(client, integrationDB)
@@ -182,12 +182,12 @@ func TestAffiliateRepository_TransferQuotaToBalance_EmptyQuota(t *testing.T) {
 	repo := NewAffiliateRepository(client, integrationDB)
 
 	u := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-empty-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Balance:      3.21,
-		Concurrency:  5,
+		Email: fmt.Sprintf("affiliate-empty-%d@example.com", time.Now().UnixNano()),
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     3.21,
+		Concurrency: 5,
 	})
 
 	affCode := fmt.Sprintf("AFF%09d", time.Now().UnixNano()%1_000_000_000)
@@ -224,10 +224,10 @@ func TestAffiliateRepository_AdminCustomCode(t *testing.T) {
 	repo := NewAffiliateRepository(client, integrationDB)
 
 	u := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-custom-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
+		Email: fmt.Sprintf("affiliate-custom-%d@example.com", time.Now().UnixNano()),
+
+		Role:   service.RoleUser,
+		Status: service.StatusActive,
 	})
 
 	original, err := repo.EnsureUserAffiliate(txCtx, u.ID)
@@ -281,14 +281,14 @@ func TestAffiliateRepository_AdminCustomCode_Conflict(t *testing.T) {
 	repo := NewAffiliateRepository(client, integrationDB)
 
 	taker := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-conflict-taker-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser, Status: service.StatusActive,
+		Email: fmt.Sprintf("affiliate-conflict-taker-%d@example.com", time.Now().UnixNano()),
+
+		Role: service.RoleUser, Status: service.StatusActive,
 	})
 	requester := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-conflict-req-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser, Status: service.StatusActive,
+		Email: fmt.Sprintf("affiliate-conflict-req-%d@example.com", time.Now().UnixNano()),
+
+		Role: service.RoleUser, Status: service.StatusActive,
 	})
 
 	takenCode := fmt.Sprintf("HOT%09d", time.Now().UnixNano()%1_000_000_000)
@@ -310,16 +310,16 @@ func TestAffiliateRepository_AdminRebateRate(t *testing.T) {
 	repo := NewAffiliateRepository(client, integrationDB)
 
 	u1 := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-rate-%d-a@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
+		Email: fmt.Sprintf("affiliate-rate-%d-a@example.com", time.Now().UnixNano()),
+
+		Role:   service.RoleUser,
+		Status: service.StatusActive,
 	})
 	u2 := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-rate-%d-b@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
+		Email: fmt.Sprintf("affiliate-rate-%d-b@example.com", time.Now().UnixNano()),
+
+		Role:   service.RoleUser,
+		Status: service.StatusActive,
 	})
 
 	// Set exclusive rate for u1
@@ -370,25 +370,25 @@ func TestAffiliateRepository_ListUsersWithCustomSettings(t *testing.T) {
 	// User without any custom config — should NOT appear in the list.
 	plainEmail := fmt.Sprintf("affiliate-plain-%d@example.com", time.Now().UnixNano())
 	uPlain := mustCreateUser(t, client, &service.User{
-		Email: plainEmail, PasswordHash: "hash",
-		Role: service.RoleUser, Status: service.StatusActive,
+		Email: plainEmail,
+		Role:  service.RoleUser, Status: service.StatusActive,
 	})
 	_, err := repo.EnsureUserAffiliate(txCtx, uPlain.ID)
 	require.NoError(t, err)
 
 	// User with a custom code — should appear.
 	uCode := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-codeonly-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser, Status: service.StatusActive,
+		Email: fmt.Sprintf("affiliate-codeonly-%d@example.com", time.Now().UnixNano()),
+
+		Role: service.RoleUser, Status: service.StatusActive,
 	})
 	require.NoError(t, repo.UpdateUserAffCode(txCtx, uCode.ID, fmt.Sprintf("VIP%09d", time.Now().UnixNano()%1_000_000_000)))
 
 	// User with only an exclusive rate — should appear.
 	uRate := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-rateonly-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser, Status: service.StatusActive,
+		Email: fmt.Sprintf("affiliate-rateonly-%d@example.com", time.Now().UnixNano()),
+
+		Role: service.RoleUser, Status: service.StatusActive,
 	})
 	r := 33.3
 	require.NoError(t, repo.SetUserRebateRate(txCtx, uRate.ID, &r))
@@ -424,12 +424,12 @@ func TestAffiliateRepository_ListUsersWithCustomSettings(t *testing.T) {
 func mustCreateAffiliateWithdrawUser(t *testing.T, client *dbent.Client, label string) *service.User {
 	t.Helper()
 	return mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("affiliate-withdraw-%s-%d@example.com", label, time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-		Balance:      5.5,
-		Concurrency:  5,
+		Email: fmt.Sprintf("affiliate-withdraw-%s-%d@example.com", label, time.Now().UnixNano()),
+
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     5.5,
+		Concurrency: 5,
 	})
 }
 

@@ -2212,14 +2212,19 @@ type openAIWSTurnBillingAPIKeys struct {
 }
 
 // begin 在 BeforeTurn 重装利润门前调用：后续 turn 重取计费分组并按 turn 记下，
-// 返回换入该分组的上下文供本 turn 的利润门使用。
-func (k *openAIWSTurnBillingAPIKeys) begin(ctx context.Context, apiKeyService *service.APIKeyService, turn int, conn *service.APIKey) context.Context {
+// 返回换入该分组的上下文供本 turn 的利润门使用。平台已拒绝该 key 所属身份时
+// 返回错误，调用方应据此结束连接：停用、注销与会话吊销不得被长连接绕过。
+func (k *openAIWSTurnBillingAPIKeys) begin(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, turn int, conn *service.APIKey) (context.Context, error) {
 	turnKey := conn
-	if turn > 1 && apiKeyService != nil {
-		turnKey = refreshOpenAIWSTurnBillingAPIKey(ctx, apiKeyService, conn)
+	if turn > 1 && lookup != nil {
+		latest, err := refreshOpenAIWSTurnBillingAPIKey(ctx, lookup, conn)
+		if err != nil {
+			return withOpenAIWSTurnBillingGroup(ctx, conn), err
+		}
+		turnKey = latest
 	}
 	k.set(turn, turnKey)
-	return withOpenAIWSTurnBillingGroup(ctx, turnKey)
+	return withOpenAIWSTurnBillingGroup(ctx, turnKey), nil
 }
 
 func (k *openAIWSTurnBillingAPIKeys) set(turn int, key *service.APIKey) {
@@ -2247,23 +2252,39 @@ func (k *openAIWSTurnBillingAPIKeys) forTurn(turn int, conn *service.APIKey) *se
 
 // refreshOpenAIWSTurnBillingAPIKey 返回本 turn 计费用的 API Key：分组取当前认证
 // 快照，其余字段与建连快照共享。不满足采用条件时原样返回建连快照。
-func refreshOpenAIWSTurnBillingAPIKey(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, conn *service.APIKey) *service.APIKey {
+// 平台拒绝该 key 所属身份时返回该错误：它与“暂时取不到”不同，不得沿用建连快照。
+func refreshOpenAIWSTurnBillingAPIKey(ctx context.Context, lookup openAIWSTurnAPIKeyLookup, conn *service.APIKey) (*service.APIKey, error) {
 	if lookup == nil || conn == nil || conn.Key == "" || conn.GroupID == nil || conn.Group == nil {
-		return conn
+		return conn, nil
 	}
 	latest, err := lookup.GetByKey(ctx, conn.Key)
-	if err != nil || latest == nil || latest.ID != conn.ID || latest.GroupID == nil || *latest.GroupID != *conn.GroupID {
-		return conn
+	if err != nil {
+		if isPlatformIdentityRejectedError(err) {
+			return conn, err
+		}
+		return conn, nil
+	}
+	if latest == nil || latest.ID != conn.ID || latest.GroupID == nil || *latest.GroupID != *conn.GroupID {
+		return conn, nil
 	}
 	group := latest.Group
 	if group == nil || group.ID != conn.Group.ID ||
 		group.Platform != conn.Group.Platform ||
 		group.SubscriptionType != conn.Group.SubscriptionType {
-		return conn
+		return conn, nil
 	}
 	turnKey := *conn
 	turnKey.Group = group
-	return &turnKey
+	return &turnKey, nil
+}
+
+// isPlatformIdentityRejectedError 判定错误是否为平台对身份的明确拒绝（停用、
+// 注销、会话吊销或 token 无效），区别于依赖暂不可用等临时失败。
+func isPlatformIdentityRejectedError(err error) bool {
+	return errors.Is(err, service.ErrPlatformDisabled) ||
+		errors.Is(err, service.ErrPlatformIdentity) ||
+		errors.Is(err, service.ErrPlatformSession) ||
+		errors.Is(err, service.ErrPlatformToken)
 }
 
 // withOpenAIWSTurnBillingGroup 把本 turn 的计费分组换进认证分组上下文，使利润门
@@ -3105,7 +3126,13 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				// 长连接跨峰谷/倍率刷新防护：每个 turn 按当前时刻重装门并复核
 				// 当前账号，越线即要求客户端重连重选（连接绑定单一上游账号，
 				// 无法中途换号）。本 turn 的准入与计费共用同一 pricingAt。
-				turnBillingCtx := turnBillingAPIKeys.begin(ctx, h.apiKeyService, turn, apiKey)
+				turnBillingCtx, platformErr := turnBillingAPIKeys.begin(ctx, h.apiKeyService, turn, apiKey)
+				if platformErr != nil {
+					reqLog.Warn("openai.websocket_turn_identity_revoked",
+						zap.Int("turn", turn),
+						zap.Error(platformErr))
+					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "api key is no longer authorized, please reconnect", platformErr)
+				}
 				turnCtx, turnAt := h.gatewayService.WithOpenAITurnPricingContext(turnBillingCtx, apiKey.GroupID)
 				if _, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(turnCtx, account); vetoed {
 					reqLog.Info("openai.websocket_turn_profit_vetoed",

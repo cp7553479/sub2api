@@ -1,6 +1,5 @@
 import axios from 'axios'
-import type { ApiResponse } from '@/types'
-import { getAPIBaseURL } from './url'
+import { getPlatformAPIURL } from './platform'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
@@ -142,15 +141,12 @@ async function requestTokenPair(
   const peerRefreshDeadline = Date.now() + TOKEN_REFRESH_TIMEOUT_MS + PEER_REFRESH_GRACE_MS
 
   try {
-    const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
-      `${getAPIBaseURL()}/auth/refresh`,
+    const response = await axios.post<RefreshTokenResponse>(
+      `${getPlatformAPIURL()}/auth/refresh`,
       { refresh_token: snapshot.refreshToken },
       { headers: { 'Content-Type': 'application/json' }, timeout: TOKEN_REFRESH_TIMEOUT_MS }
     )
     const payload = response.data
-    if (payload.code !== 0 || !payload.data) {
-      throw new Error(payload.message || 'Token refresh failed')
-    }
 
     if (
       localStorage.getItem(REFRESH_TOKEN_KEY) !== snapshot.refreshToken ||
@@ -163,8 +159,8 @@ async function requestTokenPair(
       throw new Error('Session changed during token refresh')
     }
 
-    persistTokenPair(payload.data)
-    return payload.data
+    persistTokenPair(payload)
+    return payload
   } catch (error) {
     // A peer tab may have rotated the one-time refresh token while this request was in flight.
     // A 4xx response can arrive quickly while the winning peer's response is still in flight, so

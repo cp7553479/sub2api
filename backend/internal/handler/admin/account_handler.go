@@ -1477,7 +1477,7 @@ func (h *AccountHandler) refreshSingleAccount(ctx context.Context, account *serv
 			if updateErr != nil {
 				return nil, "", fmt.Errorf("failed to update credentials: %w", updateErr)
 			}
-			h.invalidateScopedAccountToken(ctx, updatedAccount)
+			h.invalidateAccountToken(ctx, updatedAccount)
 			service.AfterAccountCommit(ctx, func(committed context.Context) {
 				h.adminService.EnsureAntigravityPrivacy(committed, updatedAccount)
 			})
@@ -1734,7 +1734,7 @@ func (h *AccountHandler) GetStats(c *gin.Context) {
 
 	stats, err := h.accountUsageService.GetAccountUsageStats(c.Request.Context(), accountID, startTime, endTime)
 	if err != nil {
-		scopedOpenAIError(c, err)
+		response.ErrorFrom(c, err)
 		return
 	}
 
@@ -3390,4 +3390,13 @@ func sanitizeExtraBaseRPM(extra map[string]any) {
 		v = 10000
 	}
 	extra["base_rpm"] = v
+}
+
+func (h *AccountHandler) invalidateAccountToken(ctx context.Context, account *service.Account) {
+	if h.tokenCacheInvalidator == nil || account == nil {
+		return
+	}
+	service.AfterAccountCommit(ctx, func(committed context.Context) {
+		_ = h.tokenCacheInvalidator.InvalidateToken(committed, account)
+	})
 }

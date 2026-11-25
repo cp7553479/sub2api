@@ -1,5 +1,5 @@
 -- Keep mixed-version writers consistent before backfilling rows that already exist.
-CREATE OR REPLACE FUNCTION public.enforce_openai_long_context_billing_extra()
+CREATE OR REPLACE FUNCTION enforce_openai_long_context_billing_extra()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
@@ -56,7 +56,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.propagate_openai_long_context_billing_extra_to_shadows()
+CREATE OR REPLACE FUNCTION propagate_openai_long_context_billing_extra_to_shadows()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
@@ -88,7 +88,7 @@ CREATE TRIGGER accounts_enforce_openai_long_context_billing_extra
 BEFORE INSERT OR UPDATE OF platform, extra, parent_account_id, quota_dimension
 ON accounts
 FOR EACH ROW
-EXECUTE FUNCTION public.enforce_openai_long_context_billing_extra();
+EXECUTE FUNCTION enforce_openai_long_context_billing_extra();
 
 DROP TRIGGER IF EXISTS accounts_propagate_openai_long_context_billing_extra ON accounts;
 CREATE TRIGGER accounts_propagate_openai_long_context_billing_extra
@@ -104,7 +104,7 @@ WHEN (
             IS DISTINCT FROM NEW.extra->'openai_long_context_billing_enabled'
     )
 )
-EXECUTE FUNCTION public.propagate_openai_long_context_billing_extra_to_shadows();
+EXECUTE FUNCTION propagate_openai_long_context_billing_extra_to_shadows();
 
 UPDATE accounts
 SET extra = jsonb_set(

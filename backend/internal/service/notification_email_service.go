@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	NotificationEmailEventAuthVerifyCode              = "auth.verify_code"
-	NotificationEmailEventAuthPasswordReset           = "auth.password_reset"
 	NotificationEmailEventNotificationEmailVerifyCode = "notification_email.verify_code"
 	NotificationEmailEventSubscriptionPurchaseSuccess = "subscription.purchase_success"
 	NotificationEmailEventSubscriptionExpiryReminder  = "subscription.expiry_reminder"
@@ -903,7 +901,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"recipient_email":     "user@example.com",
 			"verification_code":   "123456",
 			"expires_in_minutes":  "15",
-			"reset_url":           "https://example.com/reset-password?token=preview",
 			"subscription_group":  "Claude Pro",
 			"subscription_days":   "30",
 			"expiry_time":         "2026-06-18 12:00",
@@ -951,7 +948,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"recipient_email":     "user@example.com",
 		"verification_code":   "123456",
 		"expires_in_minutes":  "15",
-		"reset_url":           "https://example.com/reset-password?token=preview",
 		"subscription_group":  "Claude Pro",
 		"subscription_days":   "30",
 		"expiry_time":         "2026-06-18 12:00",
@@ -1021,8 +1017,6 @@ func addNotificationEmailOpsSummarySampleVariables(variables map[string]string) 
 }
 
 var notificationEmailEventOrder = []string{
-	NotificationEmailEventAuthVerifyCode,
-	NotificationEmailEventAuthPasswordReset,
 	NotificationEmailEventNotificationEmailVerifyCode,
 	NotificationEmailEventSubscriptionPurchaseSuccess,
 	NotificationEmailEventSubscriptionExpiryReminder,
@@ -1037,22 +1031,6 @@ var notificationEmailEventOrder = []string{
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
-	NotificationEmailEventAuthVerifyCode: {
-		Event:        NotificationEmailEventAuthVerifyCode,
-		Label:        "Email verification code",
-		Description:  "Sent for registration, email binding, OAuth pending email, and TOTP verification flows.",
-		Category:     "auth",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "verification_code", "expires_in_minutes"),
-	},
-	NotificationEmailEventAuthPasswordReset: {
-		Event:        NotificationEmailEventAuthPasswordReset,
-		Label:        "Password reset",
-		Description:  "Sent when a user requests a password reset link.",
-		Category:     "auth",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "reset_url", "expires_in_minutes"),
-	},
 	NotificationEmailEventNotificationEmailVerifyCode: {
 		Event:        NotificationEmailEventNotificationEmailVerifyCode,
 		Label:        "Notification email verification code",
@@ -1155,48 +1133,6 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 }
 
 var notificationEmailOfficialTemplates = map[string]map[string]notificationEmailOfficialTemplate{
-	NotificationEmailEventAuthVerifyCode: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Email verification code",
-			HTML: notificationEmailCard("#4f46e5", "Email verification code", `
-<p>Hello {{recipient_name}},</p>
-<p>Your verification code is:</p>
-<p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; text-align: center;">{{verification_code}}</p>
-<p>This code expires in <strong>{{expires_in_minutes}}</strong> minutes.</p>
-<p>If you did not request this code, please ignore this email.</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 邮箱验证码",
-			HTML: notificationEmailCard("#4f46e5", "邮箱验证码", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的验证码是：</p>
-<p style="font-size: 32px; font-weight: 700; letter-spacing: 8px; text-align: center;">{{verification_code}}</p>
-<p>验证码将在 <strong>{{expires_in_minutes}}</strong> 分钟后失效。</p>
-<p>如果不是您本人操作，请忽略此邮件。</p>`),
-		},
-	},
-	NotificationEmailEventAuthPasswordReset: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Password reset request",
-			HTML: notificationEmailCard("#7c3aed", "Password reset", `
-<p>Hello {{recipient_name}},</p>
-<p>We received a request to reset your password. Click the button below to set a new password.</p>
-<p><a class="button" href="{{reset_url}}">Reset password</a></p>
-<p>This link expires in <strong>{{expires_in_minutes}}</strong> minutes.</p>
-<p class="muted">If the button does not work, copy this link into your browser:<br>{{reset_url}}</p>
-<p>If you did not request this, you can safely ignore this email.</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 密码重置请求",
-			HTML: notificationEmailCard("#7c3aed", "密码重置", `
-<p>{{recipient_name}}，您好：</p>
-<p>我们收到了您的密码重置请求，请点击下方按钮设置新密码。</p>
-<p><a class="button" href="{{reset_url}}">重置密码</a></p>
-<p>此链接将在 <strong>{{expires_in_minutes}}</strong> 分钟后失效。</p>
-<p class="muted">如果按钮无法点击，请复制以下链接到浏览器中打开：<br>{{reset_url}}</p>
-<p>如果不是您本人操作，请忽略此邮件。</p>`),
-		},
-	},
 	NotificationEmailEventNotificationEmailVerifyCode: {
 		notificationEmailDefaultLocale: {
 			Subject: "[{{site_name}}] Notification email verification code",

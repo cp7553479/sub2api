@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/google/uuid"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -76,6 +77,20 @@ func (_c *UserCreate) SetNillableDeletedAt(v *time.Time) *UserCreate {
 	return _c
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (_c *UserCreate) SetSupabaseUserID(v uuid.UUID) *UserCreate {
+	_c.mutation.SetSupabaseUserID(v)
+	return _c
+}
+
+// SetNillableSupabaseUserID sets the "supabase_user_id" field if the given value is not nil.
+func (_c *UserCreate) SetNillableSupabaseUserID(v *uuid.UUID) *UserCreate {
+	if v != nil {
+		_c.SetSupabaseUserID(*v)
+	}
+	return _c
+}
+
 // SetEmail sets the "email" field.
 func (_c *UserCreate) SetEmail(v string) *UserCreate {
 	_c.mutation.SetEmail(v)
@@ -85,6 +100,14 @@ func (_c *UserCreate) SetEmail(v string) *UserCreate {
 // SetPasswordHash sets the "password_hash" field.
 func (_c *UserCreate) SetPasswordHash(v string) *UserCreate {
 	_c.mutation.SetPasswordHash(v)
+	return _c
+}
+
+// SetNillablePasswordHash sets the "password_hash" field if the given value is not nil.
+func (_c *UserCreate) SetNillablePasswordHash(v *string) *UserCreate {
+	if v != nil {
+		_c.SetPasswordHash(*v)
+	}
 	return _c
 }
 
@@ -693,9 +716,6 @@ func (_c *UserCreate) check() error {
 			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
 		}
 	}
-	if _, ok := _c.mutation.PasswordHash(); !ok {
-		return &ValidationError{Name: "password_hash", err: errors.New(`ent: missing required field "User.password_hash"`)}
-	}
 	if v, ok := _c.mutation.PasswordHash(); ok {
 		if err := user.PasswordHashValidator(v); err != nil {
 			return &ValidationError{Name: "password_hash", err: fmt.Errorf(`ent: validator failed for field "User.password_hash": %w`, err)}
@@ -804,6 +824,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.DeletedAt(); ok {
 		_spec.SetField(user.FieldDeletedAt, field.TypeTime, value)
 		_node.DeletedAt = &value
+	}
+	if value, ok := _c.mutation.SupabaseUserID(); ok {
+		_spec.SetField(user.FieldSupabaseUserID, field.TypeUUID, value)
+		_node.SupabaseUserID = &value
 	}
 	if value, ok := _c.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
@@ -1187,6 +1211,24 @@ func (u *UserUpsert) ClearDeletedAt() *UserUpsert {
 	return u
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (u *UserUpsert) SetSupabaseUserID(v uuid.UUID) *UserUpsert {
+	u.Set(user.FieldSupabaseUserID, v)
+	return u
+}
+
+// UpdateSupabaseUserID sets the "supabase_user_id" field to the value that was provided on create.
+func (u *UserUpsert) UpdateSupabaseUserID() *UserUpsert {
+	u.SetExcluded(user.FieldSupabaseUserID)
+	return u
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (u *UserUpsert) ClearSupabaseUserID() *UserUpsert {
+	u.SetNull(user.FieldSupabaseUserID)
+	return u
+}
+
 // SetEmail sets the "email" field.
 func (u *UserUpsert) SetEmail(v string) *UserUpsert {
 	u.Set(user.FieldEmail, v)
@@ -1208,6 +1250,12 @@ func (u *UserUpsert) SetPasswordHash(v string) *UserUpsert {
 // UpdatePasswordHash sets the "password_hash" field to the value that was provided on create.
 func (u *UserUpsert) UpdatePasswordHash() *UserUpsert {
 	u.SetExcluded(user.FieldPasswordHash)
+	return u
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (u *UserUpsert) ClearPasswordHash() *UserUpsert {
+	u.SetNull(user.FieldPasswordHash)
 	return u
 }
 
@@ -1597,6 +1645,27 @@ func (u *UserUpsertOne) ClearDeletedAt() *UserUpsertOne {
 	})
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (u *UserUpsertOne) SetSupabaseUserID(v uuid.UUID) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetSupabaseUserID(v)
+	})
+}
+
+// UpdateSupabaseUserID sets the "supabase_user_id" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateSupabaseUserID() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateSupabaseUserID()
+	})
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (u *UserUpsertOne) ClearSupabaseUserID() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearSupabaseUserID()
+	})
+}
+
 // SetEmail sets the "email" field.
 func (u *UserUpsertOne) SetEmail(v string) *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
@@ -1622,6 +1691,13 @@ func (u *UserUpsertOne) SetPasswordHash(v string) *UserUpsertOne {
 func (u *UserUpsertOne) UpdatePasswordHash() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdatePasswordHash()
+	})
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (u *UserUpsertOne) ClearPasswordHash() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearPasswordHash()
 	})
 }
 
@@ -2228,6 +2304,27 @@ func (u *UserUpsertBulk) ClearDeletedAt() *UserUpsertBulk {
 	})
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (u *UserUpsertBulk) SetSupabaseUserID(v uuid.UUID) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetSupabaseUserID(v)
+	})
+}
+
+// UpdateSupabaseUserID sets the "supabase_user_id" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateSupabaseUserID() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateSupabaseUserID()
+	})
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (u *UserUpsertBulk) ClearSupabaseUserID() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearSupabaseUserID()
+	})
+}
+
 // SetEmail sets the "email" field.
 func (u *UserUpsertBulk) SetEmail(v string) *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
@@ -2253,6 +2350,13 @@ func (u *UserUpsertBulk) SetPasswordHash(v string) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdatePasswordHash() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdatePasswordHash()
+	})
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (u *UserUpsertBulk) ClearPasswordHash() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.ClearPasswordHash()
 	})
 }
 

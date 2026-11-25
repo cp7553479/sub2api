@@ -57,16 +57,10 @@ var (
 	ErrBackupS3ConfigCorrupt  = infraerrors.InternalServer("BACKUP_S3_CONFIG_CORRUPT", "backup S3 config data is corrupted")
 	ErrBackupArchiveProtected = infraerrors.Conflict("BACKUP_ARCHIVE_PROTECTED", "explicit confirmation is required to delete an archived backup")
 
-	// ErrSecretEncryptionKeyNotConfigured is returned when an S3 SecretAccessKey
-	// would be encrypted with an auto-generated (ephemeral) key. That key is
-	// regenerated on every process start, so the persisted ciphertext becomes
-	// undecryptable after a restart/upgrade ("cipher: message authentication
-	// failed"), silently breaking S3 backup/image storage (#4524). Mirrors the
-	// existing guards for payments (payment.ProvideEncryptionKey) and TOTP
-	// enablement, which likewise refuse to depend on an auto-generated key.
+	// ErrSecretEncryptionKeyNotConfigured rejects persisting a secret without a fixed encryption key.
 	ErrSecretEncryptionKeyNotConfigured = infraerrors.BadRequest(
 		"SECRET_ENCRYPTION_KEY_NOT_CONFIGURED",
-		"cannot store the S3 secret access key: no fixed secret encryption key is configured, so the auto-generated key would change on every restart and make the stored secret undecryptable after a restart or upgrade. Set a fixed TOTP_ENCRYPTION_KEY (e.g. generate one with `openssl rand -hex 32`) and try again",
+		"cannot store the S3 secret access key without a fixed SECRETS_ENCRYPTION_KEY (64 hex characters)",
 	)
 )
 
@@ -158,7 +152,7 @@ type BackupService struct {
 	settingRepo SettingRepository
 	dbCfg       *config.DatabaseConfig
 	encryptor   SecretEncryptor
-	// encryptionKeyConfigured mirrors cfg.Totp.EncryptionKeyConfigured: false
+	// encryptionKeyConfigured mirrors cfg.Secrets.EncryptionKeyConfigured: false
 	// means the secret encryption key was auto-generated and does not survive a
 	// restart. Durable-secret writers must refuse to persist new secrets in that
 	// mode (#4524).
@@ -207,7 +201,7 @@ func NewBackupService(
 		settingRepo:             settingRepo,
 		dbCfg:                   &cfg.Database,
 		encryptor:               encryptor,
-		encryptionKeyConfigured: cfg.Totp.EncryptionKeyConfigured,
+		encryptionKeyConfigured: cfg.Secrets.EncryptionKeyConfigured,
 		storeFactory:            storeFactory,
 		dumper:                  dumper,
 		bgCtx:                   bgCtx,

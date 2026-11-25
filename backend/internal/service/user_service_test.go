@@ -29,7 +29,6 @@ type mockUserRepo struct {
 	deductAvailableBalanceFn func(ctx context.Context, id int64, amount float64) (float64, error)
 	getByIDUser              *User
 	getByIDErr               error
-	identities               []UserAuthIdentityRecord
 	unbindIdentityErr        error
 	unboundProviders         []string
 	updateLastActiveErr      error
@@ -234,36 +233,15 @@ func (m *mockUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int) (
 	return 0, nil
 }
 func (m *mockUserRepo) AddGroupToAllowedGroups(context.Context, int64, int64) error { return nil }
-func (m *mockUserRepo) ListUserAuthIdentities(context.Context, int64) ([]UserAuthIdentityRecord, error) {
-	out := make([]UserAuthIdentityRecord, len(m.identities))
-	copy(out, m.identities)
-	return out, nil
-}
+
 func (m *mockUserRepo) GetLatestUsedAtByUserIDs(context.Context, []int64) (map[int64]*time.Time, error) {
 	return map[int64]*time.Time{}, nil
 }
 func (m *mockUserRepo) GetLatestUsedAtByUserID(context.Context, int64) (*time.Time, error) {
 	return nil, nil
 }
-func (m *mockUserRepo) UpdateTotpSecret(context.Context, int64, *string) error { return nil }
-func (m *mockUserRepo) EnableTotp(context.Context, int64) error                { return nil }
-func (m *mockUserRepo) DisableTotp(context.Context, int64) error               { return nil }
+
 func (m *mockUserRepo) RemoveGroupFromUserAllowedGroups(context.Context, int64, int64) error {
-	return nil
-}
-func (m *mockUserRepo) UnbindUserAuthProvider(_ context.Context, _ int64, provider string) error {
-	if m.unbindIdentityErr != nil {
-		return m.unbindIdentityErr
-	}
-	m.unboundProviders = append(m.unboundProviders, provider)
-	filtered := m.identities[:0]
-	for _, identity := range m.identities {
-		if identity.ProviderType == provider {
-			continue
-		}
-		filtered = append(filtered, identity)
-	}
-	m.identities = append([]UserAuthIdentityRecord(nil), filtered...)
 	return nil
 }
 
@@ -271,7 +249,7 @@ func (m *mockUserRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*Us
 	return m.GetByID(ctx, id)
 }
 
-func (m *mockUserRepo) WithUserProfileIdentityTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+func (m *mockUserRepo) WithUserProfileTx(ctx context.Context, fn func(txCtx context.Context) error) error {
 	m.txCalls++
 	txState := &mockUserRepoTxState{
 		upsertAvatarArgs: append([]UpsertUserAvatarInput(nil), m.upsertAvatarArgs...),
@@ -396,225 +374,6 @@ func TestUpdateBalance_Success(t *testing.T) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	require.Equal(t, []int64{42}, cache.invalidatedUserIDs, "应对 userID=42 失效缓存")
-}
-
-func TestGetProfileIdentitySummaries_AllowsUnbindWhenAnotherLoginMethodRemains(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:    7,
-			Email: "alice@example.com",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "email",
-				ProviderKey:     "email",
-				ProviderSubject: "alice@example.com",
-			},
-			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-123456",
-				Metadata: map[string]any{
-					"username": "linuxdo-handle",
-				},
-			},
-		},
-	}
-	svc := NewUserService(repo, nil, nil, nil)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 7, repo.getByIDUser)
-
-	require.NoError(t, err)
-	require.True(t, summaries.LinuxDo.Bound)
-	require.True(t, summaries.LinuxDo.CanUnbind)
-	require.Equal(t, "linuxdo-handle", summaries.LinuxDo.DisplayName)
-	require.NotEmpty(t, summaries.LinuxDo.SubjectHint)
-}
-
-func TestUnbindUserAuthProviderRejectsLastRemainingLoginMethod(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:    9,
-			Email: "only-user@linuxdo-connect.invalid",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-only-subject",
-			},
-		},
-	}
-	svc := NewUserService(repo, nil, nil, nil)
-
-	_, err := svc.UnbindUserAuthProvider(context.Background(), 9, "linuxdo")
-
-	require.ErrorIs(t, err, ErrIdentityUnbindLastMethod)
-	require.Empty(t, repo.unboundProviders)
-}
-
-func TestGetProfileIdentitySummaries_DoesNotTreatOAuthOnlyCompatEmailAsAlternativeLoginMethod(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:           10,
-			Email:        "oauth-only@example.com",
-			SignupSource: "oidc",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "oidc",
-				ProviderKey:     "https://issuer.example.com",
-				ProviderSubject: "oidc-only-subject",
-			},
-		},
-	}
-	svc := NewUserService(repo, nil, nil, nil)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 10, repo.getByIDUser)
-
-	require.NoError(t, err)
-	require.False(t, summaries.OIDC.CanUnbind)
-
-	_, err = svc.UnbindUserAuthProvider(context.Background(), 10, "oidc")
-	require.ErrorIs(t, err, ErrIdentityUnbindLastMethod)
-	require.Empty(t, repo.unboundProviders)
-}
-
-func TestGetProfileIdentitySummaries_DoesNotTreatCompatBackfilledEmailIdentityAsAlternativeLoginMethod(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:           11,
-			Email:        "oauth-only@example.com",
-			SignupSource: "wechat",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "email",
-				ProviderKey:     "email",
-				ProviderSubject: "oauth-only@example.com",
-				Metadata: map[string]any{
-					"backfill_source": "users.email",
-					"migration":       "109_auth_identity_compat_backfill",
-				},
-			},
-			{
-				ProviderType:    "wechat",
-				ProviderKey:     "wechat",
-				ProviderSubject: "wechat-only-subject",
-			},
-		},
-	}
-	svc := NewUserService(repo, nil, nil, nil)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 11, repo.getByIDUser)
-
-	require.NoError(t, err)
-	require.True(t, summaries.Email.Bound)
-	require.False(t, summaries.WeChat.CanUnbind)
-
-	_, err = svc.UnbindUserAuthProvider(context.Background(), 11, "wechat")
-	require.ErrorIs(t, err, ErrIdentityUnbindLastMethod)
-	require.Empty(t, repo.unboundProviders)
-}
-
-func TestUnbindUserAuthProviderRemovesProviderAndReturnsUpdatedProfile(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:    12,
-			Email: "alice@example.com",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "email",
-				ProviderKey:     "email",
-				ProviderSubject: "alice@example.com",
-			},
-			{
-				ProviderType:    "linuxdo",
-				ProviderKey:     "linuxdo",
-				ProviderSubject: "linuxdo-subject-12",
-			},
-		},
-	}
-	invalidator := &mockAuthCacheInvalidator{}
-	svc := NewUserService(repo, nil, invalidator, nil)
-
-	user, err := svc.UnbindUserAuthProvider(context.Background(), 12, "linuxdo")
-
-	require.NoError(t, err)
-	require.Equal(t, []string{"linuxdo"}, repo.unboundProviders)
-	require.Equal(t, int64(12), user.ID)
-	require.Equal(t, []int64{12}, invalidator.invalidatedUserIDs)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 12, user)
-	require.NoError(t, err)
-	require.False(t, summaries.LinuxDo.Bound)
-	require.True(t, summaries.LinuxDo.CanBind)
-}
-
-func TestGetProfileIdentitySummaries_HidesBindActionWhenProviderExplicitlyDisabled(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:    15,
-			Email: "alice@example.com",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "email",
-				ProviderKey:     "email",
-				ProviderSubject: "alice@example.com",
-			},
-		},
-	}
-	settingRepo := &mockUserSettingRepo{
-		values: map[string]string{
-			SettingKeyLinuxDoConnectEnabled: "false",
-		},
-	}
-	svc := NewUserService(repo, settingRepo, nil, nil)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 15, repo.getByIDUser)
-
-	require.NoError(t, err)
-	require.False(t, summaries.LinuxDo.Bound)
-	require.False(t, summaries.LinuxDo.CanBind)
-	require.Empty(t, summaries.LinuxDo.BindStartPath)
-}
-
-func TestGetProfileIdentitySummaries_UsesBindStartRoute(t *testing.T) {
-	repo := &mockUserRepo{
-		getByIDUser: &User{
-			ID:    16,
-			Email: "alice@example.com",
-		},
-		identities: []UserAuthIdentityRecord{
-			{
-				ProviderType:    "email",
-				ProviderKey:     "email",
-				ProviderSubject: "alice@example.com",
-			},
-		},
-	}
-	svc := NewUserService(repo, nil, nil, nil)
-
-	summaries, err := svc.GetProfileIdentitySummaries(context.Background(), 16, repo.getByIDUser)
-
-	require.NoError(t, err)
-	require.Equal(
-		t,
-		"/api/v1/auth/oauth/linuxdo/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",
-		summaries.LinuxDo.BindStartPath,
-	)
-	require.Equal(
-		t,
-		"/api/v1/auth/oauth/oidc/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",
-		summaries.OIDC.BindStartPath,
-	)
-	require.Equal(
-		t,
-		"/api/v1/auth/oauth/wechat/bind/start?intent=bind_current_user&redirect=%2Fsettings%2Fprofile",
-		summaries.WeChat.BindStartPath,
-	)
 }
 
 func TestUpdateBalance_NilBillingCache_NoPanic(t *testing.T) {

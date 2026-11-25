@@ -171,11 +171,9 @@ func ProvideSettingHandler(settingService *service.SettingService, buildInfo Bui
 }
 
 // ProvideAdminSettingHandler creates admin.SettingHandler with notification template APIs.
-func ProvideAdminSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, aliyunCaptchaService *service.AliyunCaptchaService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, userAttributeService *service.UserAttributeService, notificationEmailService *service.NotificationEmailService, totpService *service.TotpService, userService *service.UserService) *admin.SettingHandler {
-	h := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService, userAttributeService)
+func ProvideAdminSettingHandler(settingService *service.SettingService, emailService *service.EmailService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService, notificationEmailService *service.NotificationEmailService) *admin.SettingHandler {
+	h := admin.NewSettingHandler(settingService, emailService, opsService, paymentConfigService, paymentService)
 	h.SetNotificationEmailService(notificationEmailService)
-	h.SetAliyunCaptchaService(aliyunCaptchaService)
-	h.SetStepUpDeps(totpService, userService)
 	return h
 }
 
@@ -183,7 +181,6 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 func ProvideHandlers(
 	authHandler *AuthHandler,
 	userHandler *UserHandler,
-	mcpOAuthHandler *MCPOAuthHandler,
 	apiKeyHandler *APIKeyHandler,
 	usageHandler *UsageHandler,
 	redeemHandler *RedeemHandler,
@@ -195,8 +192,6 @@ func ProvideHandlers(
 	gatewayHandler *GatewayHandler,
 	openaiGatewayHandler *OpenAIGatewayHandler,
 	settingHandler *SettingHandler,
-	totpHandler *TotpHandler,
-	passkeyHandler *PasskeyHandler,
 	paymentHandler *PaymentHandler,
 	paymentWebhookHandler *PaymentWebhookHandler,
 	availableChannelHandler *AvailableChannelHandler,
@@ -210,7 +205,6 @@ func ProvideHandlers(
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
-		MCPOAuth:         mcpOAuthHandler,
 		APIKey:           apiKeyHandler,
 		Usage:            usageHandler,
 		Redeem:           redeemHandler,
@@ -222,8 +216,6 @@ func ProvideHandlers(
 		Gateway:          gatewayHandler,
 		OpenAIGateway:    openaiGatewayHandler,
 		Setting:          settingHandler,
-		Totp:             totpHandler,
-		Passkey:          passkeyHandler,
 		Payment:          paymentHandler,
 		PaymentWebhook:   paymentWebhookHandler,
 		AvailableChannel: availableChannelHandler,
@@ -238,7 +230,6 @@ var ProviderSet = wire.NewSet(
 	// Top-level handlers
 	NewAuthHandler,
 	NewUserHandler,
-	NewMCPOAuthHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
 	NewRedeemHandler,
@@ -248,8 +239,6 @@ var ProviderSet = wire.NewSet(
 	NewChannelMonitorV2Handler,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
-	NewTotpHandler,
-	NewPasskeyHandler,
 	ProvideSettingHandler,
 	NewPaymentHandler,
 	NewPaymentWebhookHandler,

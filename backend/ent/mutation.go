@@ -53,6 +53,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/google/uuid"
 )
 
 const (
@@ -49072,6 +49073,7 @@ type UserMutation struct {
 	created_at                    *time.Time
 	updated_at                    *time.Time
 	deleted_at                    *time.Time
+	supabase_user_id              *uuid.UUID
 	email                         *string
 	password_hash                 *string
 	role                          *string
@@ -49364,6 +49366,55 @@ func (m *UserMutation) ResetDeletedAt() {
 	delete(m.clearedFields, user.FieldDeletedAt)
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (m *UserMutation) SetSupabaseUserID(u uuid.UUID) {
+	m.supabase_user_id = &u
+}
+
+// SupabaseUserID returns the value of the "supabase_user_id" field in the mutation.
+func (m *UserMutation) SupabaseUserID() (r uuid.UUID, exists bool) {
+	v := m.supabase_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSupabaseUserID returns the old "supabase_user_id" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldSupabaseUserID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSupabaseUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSupabaseUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSupabaseUserID: %w", err)
+	}
+	return oldValue.SupabaseUserID, nil
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (m *UserMutation) ClearSupabaseUserID() {
+	m.supabase_user_id = nil
+	m.clearedFields[user.FieldSupabaseUserID] = struct{}{}
+}
+
+// SupabaseUserIDCleared returns if the "supabase_user_id" field was cleared in this mutation.
+func (m *UserMutation) SupabaseUserIDCleared() bool {
+	_, ok := m.clearedFields[user.FieldSupabaseUserID]
+	return ok
+}
+
+// ResetSupabaseUserID resets all changes to the "supabase_user_id" field.
+func (m *UserMutation) ResetSupabaseUserID() {
+	m.supabase_user_id = nil
+	delete(m.clearedFields, user.FieldSupabaseUserID)
+}
+
 // SetEmail sets the "email" field.
 func (m *UserMutation) SetEmail(s string) {
 	m.email = &s
@@ -49431,9 +49482,22 @@ func (m *UserMutation) OldPasswordHash(ctx context.Context) (v string, err error
 	return oldValue.PasswordHash, nil
 }
 
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (m *UserMutation) ClearPasswordHash() {
+	m.password_hash = nil
+	m.clearedFields[user.FieldPasswordHash] = struct{}{}
+}
+
+// PasswordHashCleared returns if the "password_hash" field was cleared in this mutation.
+func (m *UserMutation) PasswordHashCleared() bool {
+	_, ok := m.clearedFields[user.FieldPasswordHash]
+	return ok
+}
+
 // ResetPasswordHash resets all changes to the "password_hash" field.
 func (m *UserMutation) ResetPasswordHash() {
 	m.password_hash = nil
+	delete(m.clearedFields, user.FieldPasswordHash)
 }
 
 // SetRole sets the "role" field.
@@ -51078,7 +51142,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -51087,6 +51151,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.deleted_at != nil {
 		fields = append(fields, user.FieldDeletedAt)
+	}
+	if m.supabase_user_id != nil {
+		fields = append(fields, user.FieldSupabaseUserID)
 	}
 	if m.email != nil {
 		fields = append(fields, user.FieldEmail)
@@ -51168,6 +51235,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case user.FieldDeletedAt:
 		return m.DeletedAt()
+	case user.FieldSupabaseUserID:
+		return m.SupabaseUserID()
 	case user.FieldEmail:
 		return m.Email()
 	case user.FieldPasswordHash:
@@ -51227,6 +51296,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldUpdatedAt(ctx)
 	case user.FieldDeletedAt:
 		return m.OldDeletedAt(ctx)
+	case user.FieldSupabaseUserID:
+		return m.OldSupabaseUserID(ctx)
 	case user.FieldEmail:
 		return m.OldEmail(ctx)
 	case user.FieldPasswordHash:
@@ -51300,6 +51371,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDeletedAt(v)
+		return nil
+	case user.FieldSupabaseUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSupabaseUserID(v)
 		return nil
 	case user.FieldEmail:
 		v, ok := value.(string)
@@ -51563,6 +51641,12 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldDeletedAt) {
 		fields = append(fields, user.FieldDeletedAt)
 	}
+	if m.FieldCleared(user.FieldSupabaseUserID) {
+		fields = append(fields, user.FieldSupabaseUserID)
+	}
+	if m.FieldCleared(user.FieldPasswordHash) {
+		fields = append(fields, user.FieldPasswordHash)
+	}
 	if m.FieldCleared(user.FieldTotpSecretEncrypted) {
 		fields = append(fields, user.FieldTotpSecretEncrypted)
 	}
@@ -51595,6 +51679,12 @@ func (m *UserMutation) ClearField(name string) error {
 	case user.FieldDeletedAt:
 		m.ClearDeletedAt()
 		return nil
+	case user.FieldSupabaseUserID:
+		m.ClearSupabaseUserID()
+		return nil
+	case user.FieldPasswordHash:
+		m.ClearPasswordHash()
+		return nil
 	case user.FieldTotpSecretEncrypted:
 		m.ClearTotpSecretEncrypted()
 		return nil
@@ -51626,6 +51716,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldDeletedAt:
 		m.ResetDeletedAt()
+		return nil
+	case user.FieldSupabaseUserID:
+		m.ResetSupabaseUserID()
 		return nil
 	case user.FieldEmail:
 		m.ResetEmail()

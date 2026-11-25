@@ -21,6 +21,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldDeletedAt holds the string denoting the deleted_at field in the database.
 	FieldDeletedAt = "deleted_at"
+	// FieldSupabaseUserID holds the string denoting the supabase_user_id field in the database.
+	FieldSupabaseUserID = "supabase_user_id"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
 	// FieldPasswordHash holds the string denoting the password_hash field in the database.
@@ -199,6 +201,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldDeletedAt,
+	FieldSupabaseUserID,
 	FieldEmail,
 	FieldPasswordHash,
 	FieldRole,
@@ -318,6 +321,11 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByDeletedAt orders the results by the deleted_at field.
 func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
+}
+
+// BySupabaseUserID orders the results by the supabase_user_id field.
+func BySupabaseUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSupabaseUserID, opts...).ToFunc()
 }
 
 // ByEmail orders the results by the email field.

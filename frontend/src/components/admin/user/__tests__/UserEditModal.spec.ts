@@ -74,6 +74,7 @@ describe('UserEditModal concurrency', () => {
 
     expect(showError).not.toHaveBeenCalled()
     expect(update).toHaveBeenCalledWith(7, expect.objectContaining({ concurrency: 0 }))
+    expect(Object.keys(update.mock.calls[0][1]).sort()).toEqual(['concurrency', 'notes', 'rpm_limit', 'username'])
     expect(wrapper.emitted('success')).toBeTruthy()
   })
 

@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/google/uuid"
 )
 
 // User is the model entity for the User schema.
@@ -23,6 +24,8 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// DeletedAt holds the value of the "deleted_at" field.
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	// SupabaseUserID holds the value of the "supabase_user_id" field.
+	SupabaseUserID *uuid.UUID `json:"supabase_user_id,omitempty"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email,omitempty"`
 	// PasswordHash holds the value of the "password_hash" field.
@@ -239,6 +242,8 @@ func (*User) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case user.FieldSupabaseUserID:
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case user.FieldTotpEnabled, user.FieldRestrictPublicGroups, user.FieldBalanceNotifyEnabled:
 			values[i] = new(sql.NullBool)
 		case user.FieldBalance, user.FieldFrozenBalance, user.FieldBalanceNotifyThreshold, user.FieldTotalRecharged:
@@ -288,6 +293,13 @@ func (_m *User) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.DeletedAt = new(time.Time)
 				*_m.DeletedAt = value.Time
+			}
+		case user.FieldSupabaseUserID:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field supabase_user_id", values[i])
+			} else if value.Valid {
+				_m.SupabaseUserID = new(uuid.UUID)
+				*_m.SupabaseUserID = *value.S.(*uuid.UUID)
 			}
 		case user.FieldEmail:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -541,6 +553,11 @@ func (_m *User) String() string {
 	if v := _m.DeletedAt; v != nil {
 		builder.WriteString("deleted_at=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.SupabaseUserID; v != nil {
+		builder.WriteString("supabase_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
 	builder.WriteString("email=")

@@ -16,12 +16,7 @@ var ErrAuditLogNotFound = infraerrors.NotFound("AUDIT_LOG_NOT_FOUND", "audit log
 
 // 审计日志相关常量。
 const (
-	// AuditAuthMethodJWT / AuditAuthMethodAdminAPIKey 与 auth 中间件写入的 auth_method 对齐。
-	AuditAuthMethodJWT         = "jwt"
-	AuditAuthMethodAdminAPIKey = "admin_api_key"
-	AuditAuthMethodPasskey     = "passkey"
-	// AuditAuthMethodMCPOAuth 标记管理 MCP 的 OAuth 访问令牌（机器凭证）。
-	AuditAuthMethodMCPOAuth = "mcp_oauth"
+	AuditAuthMethodJWT = "jwt"
 
 	// auditRequestBodyMaxBytes 请求体脱敏后入库的最大长度（字节），超出截断。
 	auditRequestBodyMaxBytes = 16 * 1024
@@ -32,13 +27,7 @@ const (
 
 // 内置审计动作名（认证/安全事件与特殊操作使用固定值，普通请求由路由自动推导）。
 const (
-	AuditActionLogin                  = "auth.login"
-	AuditActionLogin2FA               = "auth.login.2fa"
-	AuditActionRegister               = "auth.register"
-	AuditActionTokenRefresh           = "auth.token.refresh"
-	AuditActionSessionBindingMismatch = "auth.session_binding.mismatch"
-	AuditActionStepUpVerify           = "auth.step_up.verify"
-	AuditActionAuditLogClear          = "admin.audit_log.clear"
+	AuditActionAuditLogClear = "admin.audit_log.clear"
 )
 
 // AuditLog 一条管理面操作审计记录。

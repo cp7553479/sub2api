@@ -110,7 +110,7 @@ func (r postgresPromptAuditSettingRepository) Delete(ctx context.Context, key st
 
 func promptAuditTestEncryptor(t *testing.T) service.SecretEncryptor {
 	t.Helper()
-	encryptor, err := repository.NewAESEncryptor(&config.Config{Totp: config.TotpConfig{EncryptionKey: strings.Repeat("42", 32)}})
+	encryptor, err := repository.NewAESEncryptor(&config.Config{Secrets: config.SecretsConfig{EncryptionKey: strings.Repeat("42", 32)}})
 	require.NoError(t, err)
 	return encryptor
 }
@@ -148,8 +148,8 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, redisClient.Close()) })
 	require.NoError(t, redisClient.Ping(context.Background()).Err())
 
-	managerOne := NewConfigManager(db, settingRepo, redisClient, encryptor, testTotpKeyConfig())
-	managerTwo := NewConfigManager(db, settingRepo, redisClient, encryptor, testTotpKeyConfig())
+	managerOne := NewConfigManager(db, settingRepo, redisClient, encryptor, testSecretKeyConfig())
+	managerTwo := NewConfigManager(db, settingRepo, redisClient, encryptor, testSecretKeyConfig())
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	require.NoError(t, managerOne.Start(ctx))
@@ -220,7 +220,7 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 
 	// A manager without Redis subscriptions must still converge through the
 	// bounded five-second refresh loop.
-	ttlManager := NewConfigManager(db, settingRepo, nil, encryptor, testTotpKeyConfig())
+	ttlManager := NewConfigManager(db, settingRepo, nil, encryptor, testSecretKeyConfig())
 	require.NoError(t, ttlManager.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, ttlManager.Shutdown(context.Background())) })
 	waitForConfigVersion(t, ttlManager, 3, time.Second)
@@ -233,7 +233,7 @@ func TestPromptAuditConfigCASSecretRoundTripInvalidationAndTTL(t *testing.T) {
 	// successfully committed PostgreSQL config.
 	deadRedis := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1", MaxRetries: 0, DialTimeout: 30 * time.Millisecond, ReadTimeout: 30 * time.Millisecond, WriteTimeout: 30 * time.Millisecond})
 	t.Cleanup(func() { _ = deadRedis.Close() })
-	degraded := NewConfigManager(db, settingRepo, deadRedis, encryptor, testTotpKeyConfig())
+	degraded := NewConfigManager(db, settingRepo, deadRedis, encryptor, testSecretKeyConfig())
 	require.NoError(t, degraded.Reload(context.Background()))
 	degradedSaved, err := degraded.Save(context.Background(), promptAuditUpdateRequest(4, 6, ""), 401)
 	require.NoError(t, err)

@@ -281,7 +281,7 @@ func newTestBackupService(repo *mockSettingRepo, dumper DBDumper, store *mockObj
 		},
 		// A fixed encryption key is the supported production posture: persisting
 		// an S3 secret requires it (#4524).
-		Totp: config.TotpConfig{EncryptionKeyConfigured: true},
+		Secrets: config.SecretsConfig{EncryptionKeyConfigured: true},
 	}
 	factory := func(_ context.Context, _ *BackupS3Config) (BackupObjectStore, error) {
 		return store, nil
@@ -290,11 +290,11 @@ func newTestBackupService(repo *mockSettingRepo, dumper DBDumper, store *mockObj
 }
 
 // newTestBackupServiceEphemeralKey mirrors a deployment that never set
-// TOTP_ENCRYPTION_KEY, so the secret encryption key is auto-generated.
+// SECRETS_ENCRYPTION_KEY, so the secret encryption key is auto-generated.
 func newTestBackupServiceEphemeralKey(repo *mockSettingRepo) *BackupService {
 	cfg := &config.Config{
 		Database: config.DatabaseConfig{Host: "localhost", Port: 5432, User: "test", DBName: "testdb"},
-		Totp:     config.TotpConfig{EncryptionKeyConfigured: false},
+		Secrets: config.SecretsConfig{EncryptionKeyConfigured: false},
 	}
 	factory := func(_ context.Context, _ *BackupS3Config) (BackupObjectStore, error) {
 		return newMockObjectStore(), nil

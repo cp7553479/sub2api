@@ -21,8 +21,6 @@ type stubAdminService struct {
 	proxies                             []service.Proxy
 	proxyCounts                         []service.ProxyWithAccountCount
 	redeems                             []service.RedeemCode
-	boundAuthIdentity                   *service.AdminBindAuthIdentityInput
-	boundAuthIdentityFor                int64
 	createdAccounts                     []*service.CreateAccountInput
 	createdGroups                       []*service.CreateGroupInput
 	updatedGroups                       []*service.UpdateGroupInput
@@ -181,18 +179,9 @@ func (s *stubAdminService) GetUserIncludeDeleted(ctx context.Context, id int64) 
 	return s.GetUser(ctx, id)
 }
 
-func (s *stubAdminService) CreateUser(ctx context.Context, input *service.CreateUserInput) (*service.User, error) {
-	user := service.User{ID: 100, Email: input.Email, Status: service.StatusActive}
-	return &user, nil
-}
-
 func (s *stubAdminService) UpdateUser(ctx context.Context, id int64, input *service.UpdateUserInput) (*service.User, error) {
 	user := service.User{ID: id, Email: "updated@example.com", Status: service.StatusActive}
 	return &user, nil
-}
-
-func (s *stubAdminService) DeleteUser(ctx context.Context, id int64) error {
-	return nil
 }
 
 func (s *stubAdminService) UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*service.User, error) {
@@ -205,14 +194,6 @@ func (s *stubAdminService) BatchUpdateConcurrency(ctx context.Context, userIDs [
 }
 
 func (s *stubAdminService) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
-	return len(userIDs), nil
-}
-
-func (s *stubAdminService) FindActiveUsersByBlacklistedEmails(ctx context.Context, emails []string) ([]service.User, error) {
-	return []service.User{}, nil
-}
-
-func (s *stubAdminService) BatchDisableUsers(ctx context.Context, userIDs []int64) (int, error) {
 	return len(userIDs), nil
 }
 
@@ -233,52 +214,6 @@ func (s *stubAdminService) GetUserRPMStatus(ctx context.Context, userID int64) (
 		UserRPMUsed:  0,
 		UserRPMLimit: user.RPMLimit,
 	}, nil
-}
-
-func (s *stubAdminService) BindUserAuthIdentity(ctx context.Context, userID int64, input service.AdminBindAuthIdentityInput) (*service.AdminBoundAuthIdentity, error) {
-	s.boundAuthIdentityFor = userID
-	copied := input
-	if input.Metadata != nil {
-		copied.Metadata = map[string]any{}
-		for key, value := range input.Metadata {
-			copied.Metadata[key] = value
-		}
-	}
-	if input.Channel != nil {
-		channel := *input.Channel
-		if input.Channel.Metadata != nil {
-			channel.Metadata = map[string]any{}
-			for key, value := range input.Channel.Metadata {
-				channel.Metadata[key] = value
-			}
-		}
-		copied.Channel = &channel
-	}
-	s.boundAuthIdentity = &copied
-
-	now := time.Now().UTC()
-	result := &service.AdminBoundAuthIdentity{
-		UserID:          userID,
-		ProviderType:    input.ProviderType,
-		ProviderKey:     input.ProviderKey,
-		ProviderSubject: input.ProviderSubject,
-		VerifiedAt:      &now,
-		Issuer:          input.Issuer,
-		Metadata:        input.Metadata,
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}
-	if input.Channel != nil {
-		result.Channel = &service.AdminBoundAuthIdentityChannel{
-			Channel:        input.Channel.Channel,
-			ChannelAppID:   input.Channel.ChannelAppID,
-			ChannelSubject: input.Channel.ChannelSubject,
-			Metadata:       input.Channel.Metadata,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-		}
-	}
-	return result, nil
 }
 
 func (s *stubAdminService) ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]service.Group, int64, error) {

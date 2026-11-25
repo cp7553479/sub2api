@@ -22,11 +22,11 @@ type liveAttestationAES struct {
 }
 
 func newLiveAttestationCipher(cfg *config.Config) SecretEncryptor {
-	if cfg == nil || strings.TrimSpace(cfg.JWT.Secret) == "" {
+	if cfg == nil || strings.TrimSpace(cfg.Secrets.EncryptionKey) == "" {
 		return nil
 	}
 	return &liveAttestationAES{
-		key: sha256.Sum256([]byte("sub2api/live-attestation/v1\x00" + cfg.JWT.Secret)),
+		key: sha256.Sum256([]byte("sub2api/live-attestation/v1\x00" + cfg.Secrets.EncryptionKey)),
 	}
 }
 

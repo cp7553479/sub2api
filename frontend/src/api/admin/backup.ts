@@ -177,8 +177,8 @@ export async function getDownloadURL(id: string): Promise<BackupDownloadResponse
 }
 
 // Restore
-export async function restoreBackup(id: string, password: string): Promise<BackupRecord> {
-  const { data } = await apiClient.post<BackupRecord>(`/admin/backups/${id}/restore`, { password })
+export async function restoreBackup(id: string): Promise<BackupRecord> {
+  const { data } = await apiClient.post<BackupRecord>(`/admin/backups/${id}/restore`)
   return data
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/google/uuid"
 )
 
 // UserUpdate is the builder for updating User entities.
@@ -66,6 +67,26 @@ func (_u *UserUpdate) ClearDeletedAt() *UserUpdate {
 	return _u
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (_u *UserUpdate) SetSupabaseUserID(v uuid.UUID) *UserUpdate {
+	_u.mutation.SetSupabaseUserID(v)
+	return _u
+}
+
+// SetNillableSupabaseUserID sets the "supabase_user_id" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableSupabaseUserID(v *uuid.UUID) *UserUpdate {
+	if v != nil {
+		_u.SetSupabaseUserID(*v)
+	}
+	return _u
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (_u *UserUpdate) ClearSupabaseUserID() *UserUpdate {
+	_u.mutation.ClearSupabaseUserID()
+	return _u
+}
+
 // SetEmail sets the "email" field.
 func (_u *UserUpdate) SetEmail(v string) *UserUpdate {
 	_u.mutation.SetEmail(v)
@@ -91,6 +112,12 @@ func (_u *UserUpdate) SetNillablePasswordHash(v *string) *UserUpdate {
 	if v != nil {
 		_u.SetPasswordHash(*v)
 	}
+	return _u
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (_u *UserUpdate) ClearPasswordHash() *UserUpdate {
+	_u.mutation.ClearPasswordHash()
 	return _u
 }
 
@@ -1017,11 +1044,20 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(user.FieldDeletedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.SupabaseUserID(); ok {
+		_spec.SetField(user.FieldSupabaseUserID, field.TypeUUID, value)
+	}
+	if _u.mutation.SupabaseUserIDCleared() {
+		_spec.ClearField(user.FieldSupabaseUserID, field.TypeUUID)
+	}
 	if value, ok := _u.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PasswordHash(); ok {
 		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	}
+	if _u.mutation.PasswordHashCleared() {
+		_spec.ClearField(user.FieldPasswordHash, field.TypeString)
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeString, value)
@@ -1759,6 +1795,26 @@ func (_u *UserUpdateOne) ClearDeletedAt() *UserUpdateOne {
 	return _u
 }
 
+// SetSupabaseUserID sets the "supabase_user_id" field.
+func (_u *UserUpdateOne) SetSupabaseUserID(v uuid.UUID) *UserUpdateOne {
+	_u.mutation.SetSupabaseUserID(v)
+	return _u
+}
+
+// SetNillableSupabaseUserID sets the "supabase_user_id" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableSupabaseUserID(v *uuid.UUID) *UserUpdateOne {
+	if v != nil {
+		_u.SetSupabaseUserID(*v)
+	}
+	return _u
+}
+
+// ClearSupabaseUserID clears the value of the "supabase_user_id" field.
+func (_u *UserUpdateOne) ClearSupabaseUserID() *UserUpdateOne {
+	_u.mutation.ClearSupabaseUserID()
+	return _u
+}
+
 // SetEmail sets the "email" field.
 func (_u *UserUpdateOne) SetEmail(v string) *UserUpdateOne {
 	_u.mutation.SetEmail(v)
@@ -1784,6 +1840,12 @@ func (_u *UserUpdateOne) SetNillablePasswordHash(v *string) *UserUpdateOne {
 	if v != nil {
 		_u.SetPasswordHash(*v)
 	}
+	return _u
+}
+
+// ClearPasswordHash clears the value of the "password_hash" field.
+func (_u *UserUpdateOne) ClearPasswordHash() *UserUpdateOne {
+	_u.mutation.ClearPasswordHash()
 	return _u
 }
 
@@ -2740,11 +2802,20 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	if _u.mutation.DeletedAtCleared() {
 		_spec.ClearField(user.FieldDeletedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.SupabaseUserID(); ok {
+		_spec.SetField(user.FieldSupabaseUserID, field.TypeUUID, value)
+	}
+	if _u.mutation.SupabaseUserIDCleared() {
+		_spec.ClearField(user.FieldSupabaseUserID, field.TypeUUID)
+	}
 	if value, ok := _u.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PasswordHash(); ok {
 		_spec.SetField(user.FieldPasswordHash, field.TypeString, value)
+	}
+	if _u.mutation.PasswordHashCleared() {
+		_spec.ClearField(user.FieldPasswordHash, field.TypeString)
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeString, value)

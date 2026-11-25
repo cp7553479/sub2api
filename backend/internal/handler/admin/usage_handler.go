@@ -213,7 +213,7 @@ func (h *UsageHandler) List(c *gin.Context) {
 		return
 	}
 
-	response.Paginated(c, adminUsageLogResponses(c, records), result.Total, page, pageSize)
+	response.Paginated(c, adminUsageLogResponses(records), result.Total, page, pageSize)
 }
 
 // Stats handles getting usage statistics with filters
@@ -643,4 +643,12 @@ func (h *UsageHandler) CancelCleanupTask(c *gin.Context) {
 	}
 	logger.LegacyPrintf("handler.admin.usage", "[UsageCleanup] 清理任务已取消: task=%d operator=%d", taskID, subject.UserID)
 	response.Success(c, gin.H{"id": taskID, "status": service.UsageCleanupStatusCanceled})
+}
+
+func adminUsageLogResponses(records []service.UsageLog) []dto.AdminUsageLog {
+	out := make([]dto.AdminUsageLog, 0, len(records))
+	for i := range records {
+		out = append(out, *dto.UsageLogFromServiceAdmin(&records[i]))
+	}
+	return out
 }

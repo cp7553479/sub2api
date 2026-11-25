@@ -83,7 +83,7 @@ func adminRechargeSettingService(enabled bool) *SettingService {
 	if enabled {
 		values[SettingKeyAffiliateAdminRechargeEnabled] = "true"
 	}
-	return NewSettingService(&settingRepoStub{values: values}, nil)
+	return NewSettingService(&businessSettingsFixture{values: values}, nil)
 }
 
 func (s *authCacheInvalidatorStub) InvalidateAuthCacheByKey(ctx context.Context, key string) {

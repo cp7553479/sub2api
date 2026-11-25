@@ -370,13 +370,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponse(t *testing.T) {
 	t.Setenv("PAYMENT_RESUME_SIGNING_KEY", "0123456789abcdef0123456789abcdef")
 
 	svc := newWeChatPaymentOAuthTestService(map[string]string{
-		SettingKeyWeChatConnectEnabled:             "true",
-		SettingKeyWeChatConnectAppID:               "wx123456",
-		SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-		SettingKeyWeChatConnectMode:                "mp",
-		SettingKeyWeChatConnectScopes:              "snsapi_base",
-		SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-		SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+		SettingKeyWeChatConnectMPEnabled:             "true",
+		SettingKeyWeChatConnectMPAppID:               "wx123456",
+		SettingKeyWeChatConnectMPAppSecret:           "wechat-secret",
 	})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
@@ -443,13 +439,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresResumeSigningKey(t *testin
 	svc := &PaymentService{
 		configService: &PaymentConfigService{
 			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
-				SettingKeyWeChatConnectEnabled:             "true",
-				SettingKeyWeChatConnectAppID:               "wx123456",
-				SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-				SettingKeyWeChatConnectMode:                "mp",
-				SettingKeyWeChatConnectScopes:              "snsapi_base",
-				SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-				SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+				SettingKeyWeChatConnectMPEnabled:             "true",
+				SettingKeyWeChatConnectMPAppID:               "wx123456",
+				SettingKeyWeChatConnectMPAppSecret:           "wechat-secret",
 			}},
 			// Intentionally missing payment resume signing key.
 			encryptionKey: nil,
@@ -480,13 +472,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponseFallsBackToConfiguredLegacySigning
 	svc := &PaymentService{
 		configService: &PaymentConfigService{
 			settingRepo: &paymentConfigSettingRepoStub{values: map[string]string{
-				SettingKeyWeChatConnectEnabled:             "true",
-				SettingKeyWeChatConnectAppID:               "wx123456",
-				SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-				SettingKeyWeChatConnectMode:                "mp",
-				SettingKeyWeChatConnectScopes:              "snsapi_base",
-				SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-				SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+				SettingKeyWeChatConnectMPEnabled:             "true",
+				SettingKeyWeChatConnectMPAppID:               "wx123456",
+				SettingKeyWeChatConnectMPAppSecret:           "wechat-secret",
 			}},
 			// Legacy stable signing key remains available for no-config upgrade compatibility.
 			encryptionKey: []byte("0123456789abcdef0123456789abcdef"),
@@ -516,13 +504,9 @@ func TestMaybeBuildWeChatOAuthRequiredResponseFallsBackToConfiguredLegacySigning
 
 func TestMaybeBuildWeChatOAuthRequiredResponseForSelectionSkipsEasyPayProvider(t *testing.T) {
 	svc := newWeChatPaymentOAuthTestService(map[string]string{
-		SettingKeyWeChatConnectEnabled:             "true",
-		SettingKeyWeChatConnectAppID:               "wx123456",
-		SettingKeyWeChatConnectAppSecret:           "wechat-secret",
-		SettingKeyWeChatConnectMode:                "mp",
-		SettingKeyWeChatConnectScopes:              "snsapi_base",
-		SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
-		SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
+		SettingKeyWeChatConnectMPEnabled:             "true",
+		SettingKeyWeChatConnectMPAppID:               "wx123456",
+		SettingKeyWeChatConnectMPAppSecret:           "wechat-secret",
 	})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponseForSelection(context.Background(), CreateOrderRequest{

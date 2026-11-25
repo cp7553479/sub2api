@@ -1,8 +1,9 @@
-import { onMounted, onUnmounted, nextTick } from 'vue'
+import { onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { driver, type Driver, type DriveStep } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { useAuthStore as useUserStore } from '@/stores/auth'
 import { useOnboardingStore } from '@/stores/onboarding'
+import { useAdminComplianceStore } from '@/stores'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/components/Guide/steps'
 
@@ -15,6 +16,7 @@ export function useOnboardingTour(options: OnboardingOptions) {
   const { t } = useI18n()
   const userStore = useUserStore()
   const onboardingStore = useOnboardingStore()
+  const complianceStore = useAdminComplianceStore()
   const storageVersion = 'v4_interactive' // Bump version for new tour type
 
   // Timing constants for better maintainability
@@ -92,6 +94,9 @@ export function useOnboardingTour(options: OnboardingOptions) {
   }
 
   const startTour = async (startIndex = 0) => {
+    // 合规确认未完成时不启动：全屏遮罩会盖住合规弹窗，使其无法确认也无法退出。
+    if (complianceStore.shouldShow) return
+
     // 动态获取当前用户角色和步骤
     const isAdmin = userStore.user?.role === 'admin'
     const isSimpleMode = userStore.isSimpleMode
@@ -524,6 +529,11 @@ export function useOnboardingTour(options: OnboardingOptions) {
     onboardingStore.setControlMethods({
       nextStep,
       isCurrentStep
+    })
+
+    // 合规确认弹窗优先于新手引导：引导的全屏遮罩会盖住弹窗，使其无法确认也无法退出。
+    watch(() => complianceStore.shouldShow, (required) => {
+      if (required && driverInstance?.isActive()) driverInstance.destroy()
     })
 
     if (onboardingStore.isDriverActive()) {

@@ -494,6 +494,7 @@ export default {
 
     // Users
     users: {
+    platformAccountHint: 'Accounts appear here after their first sign-in.',
       title: 'User Management',
       description: 'Manage users and their permissions',
       createUser: 'Create User',

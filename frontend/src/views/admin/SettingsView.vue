@@ -44,123 +44,6 @@
           </nav>
         </div>
 
-        <!-- Tab: Security — Admin API Key -->
-        <div v-show="activeTab === 'security'" class="space-y-6">
-          <AdminAccessKeysSettings />
-          <!-- 已有全权密钥只提供轮换和删除入口。 -->
-          <details v-if="adminApiKeyExists" class="card">
-            <summary class="cursor-pointer px-6 py-4 font-medium">{{ t("adminAccessKeys.legacy") }}</summary>
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.adminApiKey.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.adminApiKey.description") }}
-              </p>
-            </div>
-            <div class="space-y-4 p-6">
-              <!-- Security Warning -->
-              <div
-                class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
-              >
-                <div class="flex items-start">
-                  <Icon
-                    name="exclamationTriangle"
-                    size="md"
-                    class="mt-0.5 flex-shrink-0 text-amber-500"
-                  />
-                  <p class="ml-3 text-sm text-amber-700 dark:text-amber-300">
-                    {{ t("admin.settings.adminApiKey.securityWarning") }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Loading State -->
-              <div
-                v-if="adminApiKeyLoading"
-                class="flex items-center gap-2 text-gray-500"
-              >
-                <div
-                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
-                ></div>
-                {{ t("common.loading") }}
-              </div>
-
-              <!-- Key Exists -->
-              <div v-else class="space-y-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <label
-                      class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.adminApiKey.currentKey") }}
-                    </label>
-                    <code
-                      class="rounded bg-gray-100 px-2 py-1 font-mono text-sm text-gray-900 dark:bg-dark-700 dark:text-gray-100"
-                    >
-                      {{ adminApiKeyMasked }}
-                    </code>
-                  </div>
-                  <div class="flex gap-2">
-                    <button
-                      type="button"
-                      @click="regenerateAdminApiKey"
-                      :disabled="adminApiKeyOperating"
-                      class="btn btn-secondary btn-sm"
-                    >
-                      {{
-                        adminApiKeyOperating
-                          ? t("admin.settings.adminApiKey.regenerating")
-                          : t("admin.settings.adminApiKey.regenerate")
-                      }}
-                    </button>
-                    <button
-                      type="button"
-                      @click="deleteAdminApiKey"
-                      :disabled="adminApiKeyOperating"
-                      class="btn btn-secondary btn-sm text-red-600 hover:text-red-700 dark:text-red-400"
-                    >
-                      {{ t("admin.settings.adminApiKey.delete") }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Newly Generated Key Display -->
-                <div
-                  v-if="newAdminApiKey"
-                  class="space-y-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
-                >
-                  <p
-                    class="text-sm font-medium text-green-700 dark:text-green-300"
-                  >
-                    {{ t("admin.settings.adminApiKey.keyWarning") }}
-                  </p>
-                  <div class="flex items-center gap-2">
-                    <code
-                      class="flex-1 select-all break-all rounded border border-green-300 bg-white px-3 py-2 font-mono text-sm dark:border-green-700 dark:bg-dark-800"
-                    >
-                      {{ newAdminApiKey }}
-                    </code>
-                    <button
-                      type="button"
-                      @click="copyNewKey"
-                      class="btn btn-primary btn-sm flex-shrink-0"
-                    >
-                      {{ t("admin.settings.adminApiKey.copyKey") }}
-                    </button>
-                  </div>
-                  <p class="text-xs text-green-600 dark:text-green-400">
-                    {{ t("admin.settings.adminApiKey.usage") }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </details>
-        </div>
-        <!-- /Tab: Security — Admin API Key -->
-
         <!-- Tab: Gateway -->
         <div v-show="activeTab === 'gateway'" class="space-y-6">
           <!-- Overload Cooldown (529) Settings -->
@@ -1381,323 +1264,9 @@
         </div>
         <!-- /Tab: Gateway -->
 
-        <!-- Tab: Security — Registration, Turnstile, LinuxDo -->
+        <!-- Tab: Security -->
         <div v-show="activeTab === 'security'" class="space-y-6">
-          <!-- Registration Settings -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.registration.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.registration.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <!-- Enable Registration -->
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.enableRegistration")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{
-                      t("admin.settings.registration.enableRegistrationHint")
-                    }}
-                  </p>
-                </div>
-                <Toggle v-model="form.registration_enabled" />
-              </div>
-
-              <!-- Email Verification -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.emailVerification")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.emailVerificationHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.email_verify_enabled" />
-              </div>
-
-              <!-- Email Suffix Whitelist -->
-              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                <label class="font-medium text-gray-900 dark:text-white">{{
-                  t("admin.settings.registration.emailSuffixWhitelist")
-                }}</label>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {{
-                    t("admin.settings.registration.emailSuffixWhitelistHint")
-                  }}
-                </p>
-                <div
-                  class="mt-3 rounded-lg border border-gray-300 bg-white p-2 dark:border-dark-500 dark:bg-dark-700"
-                >
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span
-                      v-for="suffix in registrationEmailSuffixWhitelistTags"
-                      :key="suffix"
-                      class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs font-mono text-gray-700 dark:bg-dark-600 dark:text-gray-200"
-                    >
-                      <span>{{ suffix }}</span>
-                      <button
-                        type="button"
-                        class="rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-dark-500 dark:hover:text-white"
-                        @click="
-                          removeRegistrationEmailSuffixWhitelistTag(suffix)
-                        "
-                      >
-                        <Icon
-                          name="x"
-                          size="xs"
-                          class="h-3.5 w-3.5"
-                          :stroke-width="2"
-                        />
-                      </button>
-                    </span>
-
-                    <div
-                      class="flex min-w-[220px] flex-1 items-center gap-1 rounded border border-transparent px-2 py-1 focus-within:border-primary-300 dark:focus-within:border-primary-700"
-                    >
-                      <input
-                        v-model="registrationEmailSuffixWhitelistDraft"
-                        type="text"
-                        class="w-full bg-transparent text-sm font-mono text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
-                        :placeholder="
-                          t(
-                            'admin.settings.registration.emailSuffixWhitelistPlaceholder',
-                          )
-                        "
-                        @input="
-                          handleRegistrationEmailSuffixWhitelistDraftInput
-                        "
-                        @keydown="
-                          handleRegistrationEmailSuffixWhitelistDraftKeydown
-                        "
-                        @blur="commitRegistrationEmailSuffixWhitelistDraft"
-                        @paste="handleRegistrationEmailSuffixWhitelistPaste"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  {{
-                    t(
-                      "admin.settings.registration.emailSuffixWhitelistInputHint",
-                    )
-                  }}
-                </p>
-              </div>
-
-              <!-- Email Domain Quota -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.emailDomainQuota")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.emailDomainQuotaHint") }}
-                  </p>
-                </div>
-                <Toggle
-                  v-model="form.registration_email_domain_quota_enabled"
-                />
-              </div>
-
-              <!-- Exact Email Blacklist -->
-              <RegistrationEmailBlacklistEditor />
-
-              <!-- Promo Code -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.promoCode")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.promoCodeHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.promo_code_enabled" />
-              </div>
-
-              <!-- Invitation Code -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.invitationCode")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.invitationCodeHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.invitation_code_enabled" />
-              </div>
-              <!-- Password Reset - Only show when email verification is enabled -->
-              <div
-                v-if="form.email_verify_enabled"
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.passwordReset")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.passwordResetHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.password_reset_enabled" />
-              </div>
-              <!-- Frontend URL - Only show when password reset is enabled -->
-              <div
-                v-if="form.email_verify_enabled && form.password_reset_enabled"
-                class="border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  {{ t("admin.settings.registration.frontendUrl") }}
-                </label>
-                <input
-                  v-model="form.frontend_url"
-                  type="url"
-                  class="input"
-                  :placeholder="
-                    t('admin.settings.registration.frontendUrlPlaceholder')
-                  "
-                />
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t("admin.settings.registration.frontendUrlHint") }}
-                </p>
-              </div>
-
-              <!-- TOTP 2FA -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.totp")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.totpHint") }}
-                  </p>
-                  <!-- Warning when encryption key not configured -->
-                  <p
-                    v-if="!form.totp_encryption_key_configured"
-                    class="mt-2 text-sm text-amber-600 dark:text-amber-400"
-                  >
-                    {{ t("admin.settings.registration.totpKeyNotConfigured") }}
-                  </p>
-                </div>
-                <Toggle
-                  v-model="form.totp_enabled"
-                  :disabled="!form.totp_encryption_key_configured"
-                />
-              </div>
-
-              <!-- Passkey sign-in -->
-              <div
-                class="border-t border-gray-100 pt-4 dark:border-dark-700"
-                data-testid="passkey-settings"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div>
-                    <label class="font-medium text-gray-900 dark:text-white">{{
-                      t("admin.settings.security.passkey")
-                    }}</label>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.security.passkeyHint") }}
-                    </p>
-                  </div>
-                  <Toggle
-                    v-model="form.passkey_enabled"
-                    data-testid="passkey-toggle"
-                    :disabled="!form.passkey_configured"
-                  />
-                </div>
-                <div
-                  class="mt-3 rounded-lg border px-3 py-2 text-sm"
-                  :class="
-                    form.passkey_configured
-                      ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300'
-                      : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
-                  "
-                  data-testid="passkey-config-status"
-                >
-                  <p class="font-medium">
-                    {{
-                      form.passkey_configured
-                        ? t("admin.settings.security.passkeyConfigured")
-                        : t("admin.settings.security.passkeyNotConfigured")
-                    }}
-                  </p>
-                  <p class="mt-1 break-all">
-                    {{ t("admin.settings.security.passkeyRPID") }}:
-                    {{
-                      form.passkey_rp_id ||
-                      t("admin.settings.security.passkeyValueNotConfigured")
-                    }}
-                  </p>
-                  <p class="mt-1 break-all">
-                    {{ t("admin.settings.security.passkeyOrigins") }}:
-                    {{
-                      form.passkey_rp_origins.length > 0
-                        ? form.passkey_rp_origins.join(", ")
-                        : t(
-                            "admin.settings.security.passkeyValueNotConfigured",
-                          )
-                    }}
-                  </p>
-                  <p v-if="!form.passkey_configured" class="mt-2">
-                    {{ t("admin.settings.security.passkeyDeploymentHint") }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- 敏感操作 step-up 2FA -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.security.stepUp")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.security.stepUpHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.step_up_enabled" />
-              </div>
-
-              <!-- 会话 IP/UA 绑定 -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.security.sessionBinding")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.security.sessionBindingHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.session_binding_enabled" />
-              </div>
-
-              <!-- 审计日志保留天数 -->
-              <div
+          <section class="card p-6"><div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
               >
                 <div>
@@ -1714,9 +1283,7 @@
                   min="0"
                   class="input w-28 text-right"
                 />
-              </div>
-            </div>
-          </div>
+              </div></section>
 
           <!-- API Key IP ACL Settings -->
           <div class="card">
@@ -1996,1794 +1563,9 @@
             </div>
           </div>
 
-          <!-- 人机验证 Settings -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.captcha.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.captcha.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <!-- Enable Captcha -->
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.captcha.enable")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.captcha.enableHint") }}
-                  </p>
-                </div>
-                <Toggle
-                  v-model="captchaMasterEnabled"
-                  data-testid="captcha-enabled-toggle"
-                />
-              </div>
-
-              <!-- Provider fields - Only show when enabled -->
-              <div
-                v-if="captchaMasterEnabled"
-                class="border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <!-- Provider Selector -->
-                <div class="mb-6">
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.captcha.provider") }}
-                  </label>
-                  <div
-                    class="grid grid-cols-3 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
-                  >
-                    <button
-                      type="button"
-                      data-testid="captcha-provider-turnstile"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'turnstile'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
-                      @click="selectCaptchaProvider('turnstile')"
-                    >
-                      {{ t("admin.settings.captcha.providerTurnstile") }}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="captcha-provider-tencent"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'tencent'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
-                      @click="selectCaptchaProvider('tencent')"
-                    >
-                      {{ t("admin.settings.captcha.providerTencent") }}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="captcha-provider-aliyun"
-                      class="inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                      :class="
-                        captchaProviderSelection === 'aliyun'
-                          ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                          : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                      "
-                      @click="selectCaptchaProvider('aliyun')"
-                    >
-                      {{ t("admin.settings.captcha.providerAliyun") }}
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Cloudflare Turnstile fields -->
-                <div
-                  v-if="captchaProviderSelection === 'turnstile'"
-                  class="grid grid-cols-1 gap-6"
-                >
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.turnstile.siteKey") }}
-                    </label>
-                    <input
-                      v-model="form.turnstile_site_key"
-                      type="text"
-                      class="input font-mono text-sm"
-                      placeholder="0x4AAAAAAA..."
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.turnstile.siteKeyHint") }}
-                      <a
-                        href="https://dash.cloudflare.com/"
-                        target="_blank"
-                        class="text-primary-600 hover:text-primary-500"
-                        >{{
-                          t("admin.settings.turnstile.cloudflareDashboard")
-                        }}</a
-                      >
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.turnstile.secretKey") }}
-                    </label>
-                    <input
-                      v-model="form.turnstile_secret_key"
-                      type="password"
-                      class="input font-mono text-sm"
-                      placeholder="0x4AAAAAAA..."
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        form.turnstile_secret_key_configured
-                          ? t(
-                              "admin.settings.turnstile.secretKeyConfiguredHint",
-                            )
-                          : t("admin.settings.turnstile.secretKeyHint")
-                      }}
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Tencent Captcha fields -->
-                <div v-else-if="captchaProviderSelection === 'tencent'">
-                  <div class="mb-6 max-w-sm">
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {{ t("admin.settings.tencentCaptcha.region") }}
-                    </label>
-                    <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
-                      <button
-                        type="button"
-                        data-testid="tencent-captcha-region-cn"
-                        class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                        :class="
-                          form.tencent_captcha_region !== 'intl'
-                            ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                            : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                        "
-                        @click="form.tencent_captcha_region = 'cn'"
-                      >
-                        {{ t("admin.settings.tencentCaptcha.regionCn") }}
-                      </button>
-                      <button
-                        type="button"
-                        data-testid="tencent-captcha-region-intl"
-                        class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                        :class="
-                          form.tencent_captcha_region === 'intl'
-                            ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                            : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                        "
-                        @click="form.tencent_captcha_region = 'intl'"
-                      >
-                        {{ t("admin.settings.tencentCaptcha.regionIntl") }}
-                      </button>
-                    </div>
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.tencentCaptcha.regionHint") }}
-                    </p>
-                  </div>
-                  <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <div class="md:col-span-2">
-                      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-                        {{ t("admin.settings.tencentCaptcha.appCredentialsTitle") }}
-                      </h3>
-                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {{ t("admin.settings.tencentCaptcha.appCredentialsHint") }}
-                      </p>
-                    </div>
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.appId") }}
-                      </label>
-                      <input
-                        v-model="form.tencent_captcha_app_id"
-                        type="text"
-                        inputmode="numeric"
-                        class="input font-mono text-sm"
-                        placeholder="123456789"
-                      />
-                    </div>
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.appSecretKey") }}
-                      </label>
-                      <input
-                        v-model="form.tencent_captcha_app_secret_key"
-                        type="password"
-                        autocomplete="new-password"
-                        class="input font-mono text-sm"
-                        :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
-                      />
-                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ form.tencent_captcha_app_secret_key_configured ? t("admin.settings.tencentCaptcha.configured") : t("admin.settings.tencentCaptcha.required") }}
-                      </p>
-                    </div>
-                    <div class="border-t border-gray-100 pt-5 md:col-span-2 dark:border-dark-700">
-                      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
-                        {{ t("admin.settings.tencentCaptcha.cloudCredentialsTitle") }}
-                      </h3>
-                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        {{ t("admin.settings.tencentCaptcha.cloudCredentialsHint") }}
-                      </p>
-                    </div>
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.cloudSecretId") }}
-                      </label>
-                      <input
-                        v-model="form.tencent_captcha_cloud_secret_id"
-                        type="password"
-                        autocomplete="new-password"
-                        class="input font-mono text-sm"
-                        :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
-                      />
-                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ form.tencent_captcha_cloud_secret_id_configured ? t("admin.settings.tencentCaptcha.configured") : t("admin.settings.tencentCaptcha.required") }}
-                      </p>
-                    </div>
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t("admin.settings.tencentCaptcha.cloudSecretKey") }}
-                      </label>
-                      <input
-                        v-model="form.tencent_captcha_cloud_secret_key"
-                        type="password"
-                        autocomplete="new-password"
-                        class="input font-mono text-sm"
-                        :placeholder="t('admin.settings.tencentCaptcha.keepExisting')"
-                      />
-                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ form.tencent_captcha_cloud_secret_key_configured ? t("admin.settings.tencentCaptcha.configured") : t("admin.settings.tencentCaptcha.required") }}
-                      </p>
-                    </div>
-                  </div>
-                  <p class="mt-5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.tencentCaptcha.camPermissionHint") }}
-                  </p>
-                  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.tencentCaptcha.aidEncryptedHint") }}
-                  </p>
-                  <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                    <a
-                      :href="tencentCaptchaLinks.console"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-primary-600 hover:text-primary-500"
-                    >
-                      {{ t("admin.settings.tencentCaptcha.openCaptchaConsole") }}
-                    </a>
-                    <a
-                      :href="tencentCaptchaLinks.cloudKeys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-primary-600 hover:text-primary-500"
-                    >
-                      {{ t("admin.settings.tencentCaptcha.createCloudKeys") }}
-                    </a>
-                    <a
-                      :href="tencentCaptchaLinks.webDocs"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-primary-600 hover:text-primary-500"
-                    >
-                      {{ t("admin.settings.tencentCaptcha.openWebDocs") }}
-                    </a>
-                  </div>
-                </div>
-
-                <!-- Aliyun Captcha 2.0 fields -->
-                <div v-else class="grid grid-cols-1 gap-6">
-                  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.aliyunCaptcha.region") }}
-                      </label>
-                      <div
-                        class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700"
-                      >
-                        <button
-                          type="button"
-                          class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                          :class="
-                            form.aliyun_captcha_region !== 'sgp'
-                              ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                              : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                          "
-                          @click="form.aliyun_captcha_region = 'cn'"
-                        >
-                          {{ t("admin.settings.aliyunCaptcha.regionCn") }}
-                        </button>
-                        <button
-                          type="button"
-                          class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition"
-                          :class="
-                            form.aliyun_captcha_region === 'sgp'
-                              ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-800 dark:text-primary-300'
-                              : 'text-gray-600 hover:text-gray-900 dark:text-dark-300 dark:hover:text-white'
-                          "
-                          @click="form.aliyun_captcha_region = 'sgp'"
-                        >
-                          {{ t("admin.settings.aliyunCaptcha.regionSgp") }}
-                        </button>
-                      </div>
-                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ t("admin.settings.aliyunCaptcha.regionHint") }}
-                      </p>
-                    </div>
-                    <div>
-                      <label
-                        class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {{ t("admin.settings.aliyunCaptcha.prefix") }}
-                      </label>
-                      <input
-                        v-model="form.aliyun_captcha_prefix"
-                        type="text"
-                        class="input font-mono text-sm"
-                        placeholder="14xxxxx"
-                      />
-                      <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        {{ t("admin.settings.aliyunCaptcha.prefixHint") }}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.sceneId") }}
-                    </label>
-                    <input
-                      v-model="form.aliyun_captcha_scene_id"
-                      type="text"
-                      class="input font-mono text-sm"
-                      placeholder="1cxxxxxx"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.aliyunCaptcha.sceneIdHint") }}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.accessKeyId") }}
-                    </label>
-                    <input
-                      v-model="form.aliyun_captcha_access_key_id"
-                      type="text"
-                      class="input font-mono text-sm"
-                      placeholder="LTAI..."
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.aliyunCaptcha.accessKeyIdHint") }}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.aliyunCaptcha.accessKeySecret") }}
-                    </label>
-                    <input
-                      v-model="form.aliyun_captcha_access_key_secret"
-                      type="password"
-                      autocomplete="new-password"
-                      class="input font-mono text-sm"
-                      placeholder="••••••••"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        form.aliyun_captcha_access_key_secret_configured
-                          ? t(
-                              "admin.settings.aliyunCaptcha.accessKeySecretConfiguredHint",
-                            )
-                          : t("admin.settings.aliyunCaptcha.accessKeySecretHint")
-                      }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <!-- LinuxDo Connect OAuth 登录 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.linuxdo.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.linuxdo.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.linuxdo.enable")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.linuxdo.enableHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.linuxdo_connect_enabled" />
-              </div>
-
-              <div
-                v-if="form.linuxdo_connect_enabled"
-                class="border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div class="grid grid-cols-1 gap-6">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.clientId") }}
-                    </label>
-                    <input
-                      v-model="form.linuxdo_connect_client_id"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.linuxdo.clientIdPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.linuxdo.clientIdHint") }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.clientSecret") }}
-                    </label>
-                    <input
-                      v-model="form.linuxdo_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        form.linuxdo_connect_client_secret_configured
-                          ? t(
-                              'admin.settings.linuxdo.clientSecretConfiguredPlaceholder',
-                            )
-                          : t('admin.settings.linuxdo.clientSecretPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        form.linuxdo_connect_client_secret_configured
-                          ? t(
-                              "admin.settings.linuxdo.clientSecretConfiguredHint",
-                            )
-                          : t("admin.settings.linuxdo.clientSecretHint")
-                      }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.linuxdo.redirectUrl") }}
-                    </label>
-                    <input
-                      v-model="form.linuxdo_connect_redirect_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.linuxdo.redirectUrlPlaceholder')
-                      "
-                    />
-                    <div
-                      class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
-                    >
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-sm w-fit"
-                        @click="setAndCopyLinuxdoRedirectUrl"
-                      >
-                        {{ t("admin.settings.linuxdo.quickSetCopy") }}
-                      </button>
-                      <code
-                        v-if="linuxdoRedirectUrlSuggestion"
-                        class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-                      >
-                        {{ linuxdoRedirectUrlSuggestion }}
-                      </code>
-                    </div>
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.linuxdo.redirectUrlHint") }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- GitHub / Google 邮箱快捷登录 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ localText("邮箱快捷登录", "Email OAuth Sign-in") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{
-                  localText(
-                    "开启 GitHub 或 Google 邮箱授权登录后，系统会读取已验证邮箱，存在则直接登录，不存在则自动注册。",
-                    "After GitHub or Google email OAuth is enabled, the system reads a verified email, signs in matching users, and auto-registers missing users.",
-                  )
-                }}
-              </p>
-            </div>
-            <div class="space-y-6 p-6">
-              <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 class="font-medium text-gray-900 dark:text-white">
-                        GitHub
-                      </h3>
-                      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{
-                          localText(
-                            "GitHub OAuth App 需要 read:user user:email 权限，回调地址填写下方后端地址。",
-                            "GitHub OAuth App needs read:user user:email scopes. Use the backend callback URL below.",
-                          )
-                        }}
-                      </p>
-                    </div>
-                    <Toggle v-model="form.github_oauth_enabled" />
-                  </div>
-
-                  <div v-if="form.github_oauth_enabled" class="mt-4 space-y-4">
-                    <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300">
-                      <template v-if="isZhLocale">
-                        开通引导：GitHub Settings → Developer settings →
-                        <a
-                          data-testid="github-oauth-apps-guide-link"
-                          href="https://github.com/settings/developers"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="font-medium text-primary-600 hover:underline dark:text-primary-400"
-                        >OAuth Apps</a>
-                        → New OAuth App；Homepage URL 填站点域名，Authorization callback URL 填下面的后端回调地址。
-                      </template>
-                      <template v-else>
-                        Setup guide: GitHub Settings → Developer settings →
-                        <a
-                          data-testid="github-oauth-apps-guide-link"
-                          href="https://github.com/settings/developers"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="font-medium text-primary-600 hover:underline dark:text-primary-400"
-                        >OAuth Apps</a>
-                        → New OAuth App. Use your site origin as Homepage URL and the backend callback URL below as Authorization callback URL.
-                      </template>
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
-                        <input
-                          v-model="form.github_oauth_client_id"
-                          type="text"
-                          class="input font-mono text-sm"
-                          placeholder="GitHub OAuth Client ID"
-                        />
-                      </div>
-                      <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client Secret</label>
-                        <input
-                          v-model="form.github_oauth_client_secret"
-                          type="password"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            form.github_oauth_client_secret_configured
-                              ? localText('密钥已配置，留空以保留当前值。', 'Secret configured. Leave empty to keep the current value.')
-                              : 'GitHub OAuth Client Secret'
-                          "
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("后端回调地址", "Backend Callback URL") }}
-                      </label>
-                      <input
-                        v-model="form.github_oauth_redirect_url"
-                        type="url"
-                        class="input font-mono text-sm"
-                        placeholder="https://your-domain.com/api/v1/auth/oauth/github/callback"
-                      />
-                      <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                        <button
-                          type="button"
-                          class="btn btn-secondary btn-sm w-fit"
-                          @click="setAndCopyEmailOAuthRedirectUrl('github')"
-                        >
-                          {{ localText("生成并复制", "Generate and copy") }}
-                        </button>
-                        <code
-                          v-if="githubOAuthRedirectUrlSuggestion"
-                          class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-                        >
-                          {{ githubOAuthRedirectUrlSuggestion }}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("前端回跳地址", "Frontend Callback URL") }}
-                      </label>
-                      <input
-                        v-model="form.github_oauth_frontend_redirect_url"
-                        type="text"
-                        class="input font-mono text-sm"
-                        placeholder="/auth/oauth/callback"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 class="font-medium text-gray-900 dark:text-white">
-                        Google
-                      </h3>
-                      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{
-                          localText(
-                            "Google OAuth 客户端需要 openid email profile 范围，并在凭据里登记后端回调地址。",
-                            "Google OAuth client needs openid email profile scopes and the backend callback URL registered in credentials.",
-                          )
-                        }}
-                      </p>
-                    </div>
-                    <Toggle v-model="form.google_oauth_enabled" />
-                  </div>
-
-                  <div v-if="form.google_oauth_enabled" class="mt-4 space-y-4">
-                    <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300">
-                      {{
-                        localText(
-                          "开通引导：Google Cloud Console → APIs & Services → OAuth consent screen 完成同意屏幕；Credentials → Create Credentials → OAuth client ID，类型选择 Web application，并把下面地址加入 Authorized redirect URIs。",
-                          "Setup guide: Google Cloud Console → APIs & Services → OAuth consent screen, then Credentials → Create Credentials → OAuth client ID, choose Web application, and add the URL below to Authorized redirect URIs.",
-                        )
-                      }}
-                    </div>
-
-                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client ID</label>
-                        <input
-                          v-model="form.google_oauth_client_id"
-                          type="text"
-                          class="input font-mono text-sm"
-                          placeholder="Google OAuth Client ID"
-                        />
-                      </div>
-                      <div>
-                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Client Secret</label>
-                        <input
-                          v-model="form.google_oauth_client_secret"
-                          type="password"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            form.google_oauth_client_secret_configured
-                              ? localText('密钥已配置，留空以保留当前值。', 'Secret configured. Leave empty to keep the current value.')
-                              : 'Google OAuth Client Secret'
-                          "
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("后端回调地址", "Backend Callback URL") }}
-                      </label>
-                      <input
-                        v-model="form.google_oauth_redirect_url"
-                        type="url"
-                        class="input font-mono text-sm"
-                        placeholder="https://your-domain.com/api/v1/auth/oauth/google/callback"
-                      />
-                      <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                        <button
-                          type="button"
-                          class="btn btn-secondary btn-sm w-fit"
-                          @click="setAndCopyEmailOAuthRedirectUrl('google')"
-                        >
-                          {{ localText("生成并复制", "Generate and copy") }}
-                        </button>
-                        <code
-                          v-if="googleOAuthRedirectUrlSuggestion"
-                          class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-                        >
-                          {{ googleOAuthRedirectUrlSuggestion }}
-                        </code>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText("前端回跳地址", "Frontend Callback URL") }}
-                      </label>
-                      <input
-                        v-model="form.google_oauth_frontend_redirect_url"
-                        type="text"
-                        class="input font-mono text-sm"
-                        placeholder="/auth/oauth/callback"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- WeChat Connect OAuth 登录 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.wechatConnect.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.wechatConnect.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.wechatConnect.enabledLabel")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.wechatConnect.enabledHint") }}
-                  </p>
-                </div>
-                <Toggle
-                  v-model="form.wechat_connect_enabled"
-                  data-testid="wechat-connect-enabled"
-                />
-              </div>
-
-              <div
-                v-if="form.wechat_connect_enabled"
-                class="space-y-6 border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div class="space-y-4">
-                  <div
-                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-700"
-                  >
-                    <div class="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 class="font-medium text-gray-900 dark:text-white">
-                          {{ localText("PC 应用", "PC App") }}
-                        </h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          {{
-                            localText(
-                              "桌面浏览器通过微信开放平台扫码登录。可与公众号或移动应用同时存在。",
-                              "Desktop browsers sign in through WeChat Open Platform QR login. This can coexist with Official Account or Mobile App.",
-                            )
-                          }}
-                        </p>
-                      </div>
-                      <Toggle
-                        :model-value="form.wechat_connect_open_enabled"
-                        data-testid="wechat-connect-open-enabled"
-                        @update:model-value="handleWeChatOpenEnabledChange"
-                      />
-                    </div>
-                    <div
-                      v-if="form.wechat_connect_open_enabled"
-                      class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
-                    >
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("PC AppID", "PC App ID") }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_open_app_id"
-                          data-testid="wechat-connect-open-app-id"
-                          type="text"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            localText(
-                              '微信开放平台 PC 应用 AppID',
-                              'WeChat Open Platform PC App ID',
-                            )
-                          "
-                        />
-                      </div>
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("PC AppSecret", "PC App Secret") }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_open_app_secret"
-                          data-testid="wechat-connect-open-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            form.wechat_connect_open_app_secret_configured
-                              ? localText(
-                                  '密钥已配置，留空以保留当前值。',
-                                  'Secret configured. Leave empty to keep the current value.',
-                                )
-                              : localText(
-                                  '微信开放平台 PC 应用 AppSecret',
-                                  'WeChat Open Platform PC App Secret',
-                                )
-                          "
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-700"
-                  >
-                    <div class="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 class="font-medium text-gray-900 dark:text-white">
-                          {{ localText("公众号", "Official Account") }}
-                        </h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          {{
-                            localText(
-                              "仅在微信内浏览器可用；非微信环境下会显示不可用。",
-                              "Only available inside the WeChat browser. It is shown as unavailable outside WeChat.",
-                            )
-                          }}
-                        </p>
-                      </div>
-                      <Toggle
-                        :model-value="form.wechat_connect_mp_enabled"
-                        data-testid="wechat-connect-mp-enabled"
-                        @update:model-value="handleWeChatMPEnabledChange"
-                      />
-                    </div>
-                    <div
-                      v-if="form.wechat_connect_mp_enabled"
-                      class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
-                    >
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("公众号 AppID", "Official Account App ID") }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_mp_app_id"
-                          data-testid="wechat-connect-mp-app-id"
-                          type="text"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            localText(
-                              '公众号 AppID',
-                              'Official Account App ID',
-                            )
-                          "
-                        />
-                      </div>
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{
-                            localText(
-                              "公众号 AppSecret",
-                              "Official Account App Secret",
-                            )
-                          }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_mp_app_secret"
-                          data-testid="wechat-connect-mp-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            form.wechat_connect_mp_app_secret_configured
-                              ? localText(
-                                  '密钥已配置，留空以保留当前值。',
-                                  'Secret configured. Leave empty to keep the current value.',
-                                )
-                              : localText(
-                                  '公众号 AppSecret',
-                                  'Official Account App Secret',
-                                )
-                          "
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-700"
-                  >
-                    <div class="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 class="font-medium text-gray-900 dark:text-white">
-                          {{ localText("移动应用", "Mobile App") }}
-                        </h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                          {{
-                            localText(
-                              "原生移动端通过微信 SDK 唤起授权，网页端不会直接发起该流程。",
-                              "Native mobile clients start authorization through the WeChat SDK. The web UI does not launch this flow directly.",
-                            )
-                          }}
-                        </p>
-                      </div>
-                      <Toggle
-                        :model-value="form.wechat_connect_mobile_enabled"
-                        data-testid="wechat-connect-mobile-enabled"
-                        @update:model-value="handleWeChatMobileEnabledChange"
-                      />
-                    </div>
-                    <div
-                      v-if="form.wechat_connect_mobile_enabled"
-                      class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2"
-                    >
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("移动应用 AppID", "Mobile App ID") }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_mobile_app_id"
-                          data-testid="wechat-connect-mobile-app-id"
-                          type="text"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            localText(
-                              '移动应用 AppID',
-                              'Mobile App ID',
-                            )
-                          "
-                        />
-                      </div>
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ localText("移动应用 AppSecret", "Mobile App Secret") }}
-                        </label>
-                        <input
-                          v-model="form.wechat_connect_mobile_app_secret"
-                          data-testid="wechat-connect-mobile-app-secret"
-                          type="password"
-                          class="input font-mono text-sm"
-                          :placeholder="
-                            form.wechat_connect_mobile_app_secret_configured
-                              ? localText(
-                                  '密钥已配置，留空以保留当前值。',
-                                  'Secret configured. Leave empty to keep the current value.',
-                                )
-                              : localText(
-                                  '移动应用 AppSecret',
-                                  'Mobile App Secret',
-                                )
-                          "
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  v-if="
-                    form.wechat_connect_open_enabled &&
-                    (form.wechat_connect_mp_enabled ||
-                      form.wechat_connect_mobile_enabled)
-                  "
-                  class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300"
-                >
-                  {{
-                    localText(
-                      "如果同时启用 PC 应用和公众号/移动应用，这些应用需要挂在同一个微信开放平台主体下，否则 UnionID 无法稳定归并账号。",
-                      "When PC App is enabled together with Official Account or Mobile App, they should belong to the same WeChat Open Platform account so UnionID can merge identities reliably.",
-                    )
-                  }}
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{
-                        localText(
-                          "浏览器回调地址",
-                          "Browser Redirect URL",
-                        )
-                      }}
-                    </label>
-                    <input
-                      data-testid="wechat-connect-redirect-url"
-                      v-model="form.wechat_connect_redirect_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="t('admin.settings.wechatConnect.redirectUrlPlaceholder')"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        localText(
-                          "用于 PC 应用和公众号的网页回调。移动应用走原生 SDK 时不直接使用这个浏览器回调。",
-                          "Used by PC App and Official Account browser callbacks. Native mobile SDK flows do not start from this browser callback directly.",
-                        )
-                      }}
-                    </p>
-                    <div
-                      class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
-                    >
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-sm w-fit"
-                        @click="setAndCopyWeChatRedirectUrl"
-                      >
-                        {{ t("admin.settings.wechatConnect.generateAndCopy") }}
-                      </button>
-                      <code
-                        v-if="wechatRedirectUrlSuggestion"
-                        class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-                      >
-                        {{ wechatRedirectUrlSuggestion }}
-                      </code>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.wechatConnect.frontendRedirectUrlLabel") }}
-                  </label>
-                  <input
-                    data-testid="wechat-connect-frontend-redirect-url"
-                    v-model="form.wechat_connect_frontend_redirect_url"
-                    type="text"
-                    class="input font-mono text-sm"
-                    :placeholder="t('admin.settings.wechatConnect.frontendRedirectUrlPlaceholder')"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.wechatConnect.frontendRedirectUrlHint") }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- DingTalk Connect OAuth 登录 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.dingtalk.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.dingtalk.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.dingtalk.enable")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.dingtalk.enableHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.dingtalk_connect_enabled" />
-              </div>
-
-              <div
-                v-if="form.dingtalk_connect_enabled"
-                class="border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div class="grid grid-cols-1 gap-6">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.clientId") }}
-                    </label>
-                    <input
-                      v-model="form.dingtalk_connect_client_id"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.dingtalk.clientIdPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.dingtalk.clientIdHint") }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.clientSecret") }}
-                    </label>
-                    <input
-                      v-model="form.dingtalk_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        form.dingtalk_connect_client_secret_configured
-                          ? t(
-                              'admin.settings.dingtalk.clientSecretConfiguredPlaceholder',
-                            )
-                          : t('admin.settings.dingtalk.clientSecretPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        form.dingtalk_connect_client_secret_configured
-                          ? t(
-                              "admin.settings.dingtalk.clientSecretConfiguredHint",
-                            )
-                          : t("admin.settings.dingtalk.clientSecretHint")
-                      }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.dingtalk.redirectUrl") }}
-                    </label>
-                    <input
-                      v-model="form.dingtalk_connect_redirect_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.dingtalk.redirectUrlPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.dingtalk.redirectUrlHint") }}
-                    </p>
-                  </div>
-
-                  <!-- Corp Restriction Policy -->
-                  <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {{ t("admin.settings.dingtalk.corpPolicy.label") }}
-                    </label>
-                    <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.dingtalk.corpPolicy.hint") }}
-                    </p>
-                    <div class="space-y-2">
-                      <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                          v-model="form.dingtalk_connect_corp_restriction_policy"
-                          type="radio"
-                          value="none"
-                          class="h-4 w-4 text-primary-600"
-                        />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">
-                          {{ t("admin.settings.dingtalk.corpPolicy.none") }}
-                        </span>
-                      </label>
-                      <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                          v-model="form.dingtalk_connect_corp_restriction_policy"
-                          type="radio"
-                          value="internal_only"
-                          class="h-4 w-4 text-primary-600"
-                        />
-                        <span class="text-sm text-gray-700 dark:text-gray-300">
-                          {{ t("admin.settings.dingtalk.corpPolicy.internalOnly") }}
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <!-- bypass_registration toggle（仅 internal_only 模式下可见可用） -->
-                  <div
-                    v-if="form.dingtalk_connect_corp_restriction_policy === 'internal_only'"
-                    class="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-dark-700"
-                  >
-                    <div>
-                      <label class="font-medium text-gray-900 dark:text-white">{{
-                        t("admin.settings.dingtalk.bypassRegistration")
-                      }}</label>
-                      <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ t("admin.settings.dingtalk.bypassRegistrationHint") }}
-                      </p>
-                    </div>
-                    <Toggle v-model="form.dingtalk_connect_bypass_registration" />
-                  </div>
-
-                  <!-- 身份同步开关（仅 internal_only 模式下可见） -->
-                  <div
-                    v-if="form.dingtalk_connect_corp_restriction_policy === 'internal_only'"
-                    class="pt-4 border-t border-gray-100 dark:border-dark-700 space-y-2"
-                  >
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <label class="font-medium text-gray-900 dark:text-white">{{
-                          t("admin.settings.dingtalk.syncDisplayName")
-                        }}</label>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                          {{ t("admin.settings.dingtalk.syncDisplayNameHint") }}
-                        </p>
-                      </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_display_name" />
-                    </div>
-                    <div v-if="form.dingtalk_connect_sync_display_name" class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncDisplayNameTarget") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_display_name_attr_key"
-                          type="text"
-                          placeholder="dingtalk_name"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_display_name_attr_name"
-                          type="text"
-                          :placeholder="localText('钉钉姓名', 'DingTalk Name')"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                    </div>
-                    <p v-if="form.dingtalk_connect_sync_display_name" class="text-xs text-gray-400 dark:text-gray-500">
-                      {{ t("admin.settings.dingtalk.syncDisplayNameTargetHint") }}
-                    </p>
-                  </div>
-                  <div
-                    v-if="form.dingtalk_connect_corp_restriction_policy === 'internal_only'"
-                    class="pt-4 border-t border-gray-100 dark:border-dark-700 space-y-2"
-                  >
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <label class="font-medium text-gray-900 dark:text-white">{{
-                          t("admin.settings.dingtalk.syncCorpEmail")
-                        }}</label>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                          {{ t("admin.settings.dingtalk.syncCorpEmailHint") }}
-                        </p>
-                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          {{ t("admin.settings.dingtalk.syncCorpEmailPermissionHint") }}
-                        </p>
-                      </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_corp_email" />
-                    </div>
-                    <div v-if="form.dingtalk_connect_sync_corp_email" class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncCorpEmailTarget") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_corp_email_attr_key"
-                          type="text"
-                          placeholder="dingtalk_email"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_corp_email_attr_name"
-                          type="text"
-                          :placeholder="localText('钉钉企业邮箱', 'DingTalk Corporate Email')"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                    </div>
-                    <p v-if="form.dingtalk_connect_sync_corp_email" class="text-xs text-gray-400 dark:text-gray-500">
-                      {{ t("admin.settings.dingtalk.syncCorpEmailTargetHint") }}
-                    </p>
-                  </div>
-                  <div
-                    v-if="form.dingtalk_connect_corp_restriction_policy === 'internal_only'"
-                    class="pt-4 border-t border-gray-100 dark:border-dark-700 space-y-2"
-                  >
-                    <div class="flex items-center justify-between">
-                      <div>
-                        <label class="font-medium text-gray-900 dark:text-white">{{
-                          t("admin.settings.dingtalk.syncDept")
-                        }}</label>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                          {{ t("admin.settings.dingtalk.syncDeptHint") }}
-                        </p>
-                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          {{ t("admin.settings.dingtalk.syncDeptPermissionHint") }}
-                        </p>
-                      </div>
-                      <Toggle v-model="form.dingtalk_connect_sync_dept" />
-                    </div>
-                    <div v-if="form.dingtalk_connect_sync_dept" class="space-y-2">
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncDeptTarget") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_dept_attr_key"
-                          type="text"
-                          placeholder="dingtalk_department"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <label class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap min-w-[5rem]">
-                          {{ t("admin.settings.dingtalk.syncAttrDisplayName") }}
-                        </label>
-                        <input
-                          v-model="form.dingtalk_connect_sync_dept_attr_name"
-                          type="text"
-                          :placeholder="localText('钉钉部门', 'DingTalk Department')"
-                          class="input text-sm flex-1 max-w-xs"
-                        />
-                      </div>
-                    </div>
-                    <p v-if="form.dingtalk_connect_sync_dept" class="text-xs text-gray-400 dark:text-gray-500">
-                      {{ t("admin.settings.dingtalk.syncDeptTargetHint") }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Generic OIDC OAuth 登录 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.oidc.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.oidc.description") }}
-              </p>
-            </div>
-            <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.oidc.enable")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.oidc.enableHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.oidc_connect_enabled" />
-              </div>
-
-              <div
-                v-if="form.oidc_connect_enabled"
-                class="space-y-6 border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.providerName") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_provider_name"
-                      type="text"
-                      class="input"
-                      :placeholder="
-                        t('admin.settings.oidc.providerNamePlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clientId") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_client_id"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.clientIdPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clientSecret") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_client_secret"
-                      type="password"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        form.oidc_connect_client_secret_configured
-                          ? t(
-                              'admin.settings.oidc.clientSecretConfiguredPlaceholder',
-                            )
-                          : t('admin.settings.oidc.clientSecretPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{
-                        form.oidc_connect_client_secret_configured
-                          ? t("admin.settings.oidc.clientSecretConfiguredHint")
-                          : t("admin.settings.oidc.clientSecretHint")
-                      }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.issuerUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_issuer_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.issuerUrlPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.discoveryUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_discovery_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.discoveryUrlPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.authorizeUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_authorize_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.authorizeUrlPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.tokenUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_token_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.tokenUrlPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_userinfo_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.userinfoUrlPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.jwksUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_jwks_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="t('admin.settings.oidc.jwksUrlPlaceholder')"
-                    />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.scopes") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_scopes"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="t('admin.settings.oidc.scopesPlaceholder')"
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.oidc.scopesHint") }}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.redirectUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_redirect_url"
-                      type="url"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.redirectUrlPlaceholder')
-                      "
-                    />
-                    <div
-                      class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
-                    >
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-sm w-fit"
-                        @click="setAndCopyOIDCRedirectUrl"
-                      >
-                        {{ t("admin.settings.oidc.quickSetCopy") }}
-                      </button>
-                      <code
-                        v-if="oidcRedirectUrlSuggestion"
-                        class="select-all break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-600 dark:bg-dark-800 dark:text-gray-300"
-                      >
-                        {{ oidcRedirectUrlSuggestion }}
-                      </code>
-                    </div>
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.oidc.redirectUrlHint") }}
-                    </p>
-                  </div>
-
-                  <div class="lg:col-span-2">
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.frontendRedirectUrl") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_frontend_redirect_url"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.frontendRedirectUrlPlaceholder')
-                      "
-                    />
-                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.oidc.frontendRedirectUrlHint") }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.tokenAuthMethod") }}
-                    </label>
-                    <select
-                      v-model="form.oidc_connect_token_auth_method"
-                      class="input font-mono text-sm"
-                    >
-                      <option value="client_secret_post">
-                        client_secret_post
-                      </option>
-                      <option value="client_secret_basic">
-                        client_secret_basic
-                      </option>
-                      <option value="none">none</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.clockSkewSeconds") }}
-                    </label>
-                    <input
-                      v-model.number="form.oidc_connect_clock_skew_seconds"
-                      type="number"
-                      min="0"
-                      max="600"
-                      class="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.allowedSigningAlgs") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_allowed_signing_algs"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.allowedSigningAlgsPlaceholder')
-                      "
-                    />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div
-                    class="flex items-center justify-between rounded border border-gray-200 px-4 py-3 dark:border-dark-700"
-                  >
-                    <div>
-                      <label class="font-medium text-gray-900 dark:text-white">
-                        {{ t("admin.settings.oidc.usePkce") }}
-                      </label>
-                    </div>
-                    <Toggle
-                      v-model="form.oidc_connect_use_pkce"
-                      data-testid="oidc-connect-use-pkce"
-                    />
-                  </div>
-
-                  <div
-                    class="flex items-center justify-between rounded border border-gray-200 px-4 py-3 dark:border-dark-700"
-                  >
-                    <div>
-                      <label class="font-medium text-gray-900 dark:text-white">
-                        {{ t("admin.settings.oidc.validateIdToken") }}
-                      </label>
-                    </div>
-                    <Toggle
-                      v-model="form.oidc_connect_validate_id_token"
-                      data-testid="oidc-connect-validate-id-token"
-                    />
-                  </div>
-
-                  <div
-                    class="flex items-center justify-between rounded border border-gray-200 px-4 py-3 dark:border-dark-700"
-                  >
-                    <div>
-                      <label class="font-medium text-gray-900 dark:text-white">
-                        {{ t("admin.settings.oidc.requireEmailVerified") }}
-                      </label>
-                    </div>
-                    <Toggle
-                      v-model="form.oidc_connect_require_email_verified"
-                    />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoEmailPath") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_userinfo_email_path"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.userinfoEmailPathPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoIdPath") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_userinfo_id_path"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.userinfoIdPathPlaceholder')
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {{ t("admin.settings.oidc.userinfoUsernamePath") }}
-                    </label>
-                    <input
-                      v-model="form.oidc_connect_userinfo_username_path"
-                      type="text"
-                      class="input font-mono text-sm"
-                      :placeholder="
-                        t('admin.settings.oidc.userinfoUsernamePathPlaceholder')
-                      "
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- /Tab: Security — Registration, Turnstile, LinuxDo, OIDC -->
+        <!-- /Tab: Security -->
 
         <!-- Tab: Users -->
         <div v-show="activeTab === 'users'" class="space-y-6">
@@ -3800,199 +1582,9 @@
               </p>
             </div>
             <div class="space-y-6 p-6">
-              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultBalance") }}
-                  </label>
-                  <input
-                    v-model.number="form.default_balance"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    class="input"
-                    placeholder="0.00"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultBalanceHint") }}
-                  </p>
-                </div>
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultConcurrency") }}
-                  </label>
-                  <input
-                    v-model.number="form.default_concurrency"
-                    type="number"
-                    min="1"
-                    class="input"
-                    placeholder="1"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultConcurrencyHint") }}
-                  </p>
-                </div>
-                <div>
-                  <label
-                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.defaults.defaultUserRpmLimit") }}
-                  </label>
-                  <input
-                    v-model.number="form.default_user_rpm_limit"
-                    type="number"
-                    min="0"
-                    step="1"
-                    class="input"
-                    placeholder="0"
-                  />
-                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.defaults.defaultUserRpmLimitHint") }}
-                  </p>
-                </div>
-              </div>
 
-              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                <div class="mb-3 flex items-center justify-between">
-                  <div>
-                    <label class="font-medium text-gray-900 dark:text-white">
-                      {{ t("admin.settings.defaults.defaultSubscriptions") }}
-                    </label>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                      {{
-                        t("admin.settings.defaults.defaultSubscriptionsHint")
-                      }}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-sm"
-                    @click="addDefaultSubscription"
-                    :disabled="subscriptionGroups.length === 0"
-                  >
-                    {{ t("admin.settings.defaults.addDefaultSubscription") }}
-                  </button>
-                </div>
 
-                <div
-                  v-if="form.default_subscriptions.length === 0"
-                  class="rounded border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
-                >
-                  {{ t("admin.settings.defaults.defaultSubscriptionsEmpty") }}
-                </div>
 
-                <div v-else class="space-y-3">
-                  <div
-                    v-for="(item, index) in form.default_subscriptions"
-                    :key="`default-sub-${index}`"
-                    class="grid grid-cols-1 gap-3 rounded border border-gray-200 p-3 md:grid-cols-[1fr_160px_auto] dark:border-dark-600"
-                  >
-                    <div>
-                      <label
-                        class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                      >
-                        {{ t("admin.settings.defaults.subscriptionGroup") }}
-                      </label>
-                      <Select
-                        v-model="item.group_id"
-                        class="default-sub-group-select"
-                        :options="defaultSubscriptionGroupOptions"
-                        :placeholder="
-                          t('admin.settings.defaults.subscriptionGroup')
-                        "
-                      >
-                        <template #selected="{ option }">
-                          <GroupBadge
-                            v-if="option"
-                            :name="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).label
-                            "
-                            :platform="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).platform
-                            "
-                            :subscription-type="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).subscriptionType
-                            "
-                            :rate-multiplier="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).rate
-                            "
-                          />
-                          <span v-else class="text-gray-400">
-                            {{ t("admin.settings.defaults.subscriptionGroup") }}
-                          </span>
-                        </template>
-                        <template #option="{ option, selected }">
-                          <GroupOptionItem
-                            :name="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).label
-                            "
-                            :platform="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).platform
-                            "
-                            :subscription-type="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).subscriptionType
-                            "
-                            :rate-multiplier="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).rate
-                            "
-                            :description="
-                              (
-                                option as unknown as DefaultSubscriptionGroupOption
-                              ).description
-                            "
-                            :selected="selected"
-                          />
-                        </template>
-                      </Select>
-                    </div>
-                    <div>
-                      <label
-                        class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                      >
-                        {{
-                          t("admin.settings.defaults.subscriptionValidityDays")
-                        }}
-                      </label>
-                      <input
-                        v-model.number="item.validity_days"
-                        type="number"
-                        min="1"
-                        max="36500"
-                        class="input h-[42px]"
-                      />
-                    </div>
-                    <div class="flex items-end">
-                      <button
-                        type="button"
-                        class="btn btn-secondary default-sub-delete-btn w-full text-red-600 hover:text-red-700 dark:text-red-400"
-                        @click="removeDefaultSubscription(index)"
-                      >
-                        {{ t("common.delete") }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <!-- ★ 新增：系统全局默认平台限额矩阵 -->
               <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
@@ -4061,343 +1653,7 @@
             </div>
           </div>
 
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.authSourceDefaults.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.authSourceDefaults.description") }}
-              </p>
-            </div>
-            <div class="space-y-6 p-6">
-              <div
-                class="flex items-center justify-between rounded border border-gray-200 px-4 py-3 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.authSourceDefaults.requireEmailLabel") }}
-                  </label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.authSourceDefaults.requireEmailHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.force_email_on_third_party_signup" />
-              </div>
 
-              <div class="space-y-4">
-                <div
-                  v-for="authSource in authSourceDefaultsMeta"
-                  :key="authSource.source"
-                  class="rounded-xl border border-gray-200 p-4 dark:border-dark-700"
-                >
-                  <div class="flex items-center justify-between gap-4">
-                    <div>
-                      <div class="font-medium text-gray-900 dark:text-white">
-                        {{ authSource.title }}
-                      </div>
-                      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{ authSource.description }}
-                      </p>
-                    </div>
-                    <Toggle
-                      v-model="
-                        authSourceDefaults[authSource.source].grant_on_signup
-                      "
-                      :data-testid="`auth-source-${authSource.source}-enabled`"
-                    />
-                  </div>
-
-                  <div
-                    v-if="authSourceDefaults[authSource.source].grant_on_signup"
-                    :data-testid="`auth-source-${authSource.source}-panel`"
-                    class="mt-4 space-y-4 border-t border-gray-100 pt-4 dark:border-dark-700"
-                  >
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                      {{ t("admin.settings.authSourceDefaults.enabledHint") }}
-                    </p>
-
-                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ t("admin.settings.defaults.defaultBalance") }}
-                        </label>
-                        <input
-                          v-model.number="
-                            authSourceDefaults[authSource.source].balance
-                          "
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          class="input"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {{ t("admin.settings.defaults.defaultConcurrency") }}
-                        </label>
-                        <input
-                          v-model.number="
-                            authSourceDefaults[authSource.source].concurrency
-                          "
-                          type="number"
-                          min="1"
-                          class="input"
-                          placeholder="5"
-                        />
-                      </div>
-                    </div>
-
-                    <div
-                      class="flex items-center justify-between rounded border border-gray-200 px-4 py-3 dark:border-dark-700"
-                    >
-                      <div>
-                        <label
-                          class="font-medium text-gray-900 dark:text-white"
-                        >
-                          {{ t("admin.settings.authSourceDefaults.grantOnFirstBindLabel") }}
-                        </label>
-                        <p
-                          class="mt-0.5 text-xs text-gray-500 dark:text-gray-400"
-                        >
-                          {{ t("admin.settings.authSourceDefaults.grantOnFirstBindHint") }}
-                        </p>
-                      </div>
-                      <Toggle
-                        v-model="
-                          authSourceDefaults[authSource.source]
-                            .grant_on_first_bind
-                        "
-                      />
-                    </div>
-
-                    <div class="mb-3 flex items-center justify-between">
-                      <div>
-                        <label
-                          class="font-medium text-gray-900 dark:text-white"
-                        >
-                          {{ t("admin.settings.authSourceDefaults.defaultSubscriptionsLabel") }}
-                        </label>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                          {{ t("admin.settings.authSourceDefaults.defaultSubscriptionsHint") }}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        class="btn btn-secondary btn-sm"
-                        @click="
-                          addAuthSourceDefaultSubscription(authSource.source)
-                        "
-                        :disabled="subscriptionGroups.length === 0"
-                      >
-                        {{
-                          t("admin.settings.defaults.addDefaultSubscription")
-                        }}
-                      </button>
-                    </div>
-
-                    <div
-                      v-if="
-                        authSourceDefaults[authSource.source].subscriptions
-                          .length === 0
-                      "
-                      class="rounded border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
-                    >
-                      {{ t("admin.settings.authSourceDefaults.noSourceSubscriptions") }}
-                    </div>
-
-                    <div v-else class="space-y-3">
-                      <div
-                        v-for="(item, index) in authSourceDefaults[
-                          authSource.source
-                        ].subscriptions"
-                        :key="`${authSource.source}-sub-${index}`"
-                        class="grid grid-cols-1 gap-3 rounded border border-gray-200 p-3 md:grid-cols-[1fr_160px_auto] dark:border-dark-600"
-                      >
-                        <div>
-                          <label
-                            class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                          >
-                            {{ t("admin.settings.defaults.subscriptionGroup") }}
-                          </label>
-                          <Select
-                            v-model="item.group_id"
-                            class="default-sub-group-select"
-                            :options="defaultSubscriptionGroupOptions"
-                            :placeholder="
-                              t('admin.settings.defaults.subscriptionGroup')
-                            "
-                          >
-                            <template #selected="{ option }">
-                              <GroupBadge
-                                v-if="option"
-                                :name="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).label
-                                "
-                                :platform="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).platform
-                                "
-                                :subscription-type="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).subscriptionType
-                                "
-                                :rate-multiplier="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).rate
-                                "
-                              />
-                              <span v-else class="text-gray-400">
-                                {{
-                                  t("admin.settings.defaults.subscriptionGroup")
-                                }}
-                              </span>
-                            </template>
-                            <template #option="{ option, selected }">
-                              <GroupOptionItem
-                                :name="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).label
-                                "
-                                :platform="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).platform
-                                "
-                                :subscription-type="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).subscriptionType
-                                "
-                                :rate-multiplier="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).rate
-                                "
-                                :description="
-                                  (
-                                    option as unknown as DefaultSubscriptionGroupOption
-                                  ).description
-                                "
-                                :selected="selected"
-                              />
-                            </template>
-                          </Select>
-                        </div>
-                        <div>
-                          <label
-                            class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                          >
-                            {{
-                              t(
-                                "admin.settings.defaults.subscriptionValidityDays",
-                              )
-                            }}
-                          </label>
-                          <input
-                            v-model.number="item.validity_days"
-                            type="number"
-                            min="1"
-                            max="36500"
-                            class="input h-[42px]"
-                          />
-                        </div>
-                        <div class="flex items-end">
-                          <button
-                            type="button"
-                            class="btn btn-secondary w-full text-red-600 hover:text-red-700 dark:text-red-400"
-                            @click="
-                              removeAuthSourceDefaultSubscription(
-                                authSource.source,
-                                index,
-                              )
-                            "
-                          >
-                            {{ t("common.delete") }}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- ★ 新增：auth source 平台限额覆盖区块 -->
-                    <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                      <div class="mb-3">
-                        <label class="font-medium text-gray-900 dark:text-white">
-                          {{ t("admin.settings.authSourceDefaults.platformQuotasOverride") }}
-                        </label>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                          {{ t("admin.settings.authSourceDefaults.platformQuotasOverrideHint") }}
-                        </p>
-                      </div>
-                      <div class="overflow-x-auto">
-                        <table class="min-w-full text-sm">
-                          <thead>
-                            <tr class="text-left text-xs text-gray-500 dark:text-gray-400">
-                              <th class="pb-2 pr-4 font-medium">{{ t("admin.settings.platformQuota.platform") }}</th>
-                              <th class="pb-2 pr-4 font-medium">{{ t("admin.settings.platformQuota.daily") }}</th>
-                              <th class="pb-2 pr-4 font-medium">{{ t("admin.settings.platformQuota.weekly") }}</th>
-                              <th class="pb-2 font-medium">{{ t("admin.settings.platformQuota.monthly") }}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="p in platformQuotaRows(authSourceDefaults[authSource.source].platform_quotas)" :key="`${authSource.source}-pq-${p}`" class="align-top">
-                              <td class="pr-4 py-1">
-                                <span class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ p }}</span>
-                              </td>
-                              <td class="pr-4 py-1">
-                                <input
-                                  v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.daily"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  class="input h-8 w-28 text-sm"
-                                  :placeholder="t('admin.settings.platformQuota.placeholder')"
-                                />
-                              </td>
-                              <td class="pr-4 py-1">
-                                <input
-                                  v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.weekly"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  class="input h-8 w-28 text-sm"
-                                  :placeholder="t('admin.settings.platformQuota.placeholder')"
-                                />
-                              </td>
-                              <td class="py-1">
-                                <input
-                                  v-model.number="authSourceDefaults[authSource.source].platform_quotas[p]!.monthly"
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  class="input h-8 w-28 text-sm"
-                                  :placeholder="t('admin.settings.platformQuota.placeholder')"
-                                />
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    <!-- /auth source 平台限额覆盖区块 -->
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
         <!-- /Tab: Users -->
 
@@ -6349,6 +3605,7 @@
 
         <!-- Tab: General -->
         <div v-show="activeTab === 'general'" class="space-y-6">
+<section class="card p-6"><label class="block font-medium">{{ localText('站点地址', 'Website URL') }}<input v-model="form.frontend_url" type="url" class="input mt-2" /></label></section>
           <!-- Site Settings -->
           <div class="card">
             <div
@@ -7880,6 +5137,41 @@
         <!-- Tab: Email -->
         <!-- Tab: Payment -->
         <div v-show="activeTab === 'payment'" class="space-y-6">
+          <section class="card space-y-4 p-6">
+            <h3 class="font-semibold">
+              {{ localText('微信内支付授权', 'WeChat in-app payment authorization') }}
+            </h3>
+            <label class="flex items-center justify-between">
+              <span>
+                {{ localText('启用微信公众号支付授权', 'Enable WeChat MP payment authorization') }}
+              </span>
+              <Toggle
+                v-model="form.wechat_connect_mp_enabled"
+                data-testid="wechat-payment-enabled"
+              />
+            </label>
+            <label class="block">
+              AppID
+              <input
+                v-model="form.wechat_connect_mp_app_id"
+                data-testid="wechat-payment-app-id"
+                class="input mt-2"
+              />
+            </label>
+            <label class="block">
+              AppSecret
+              <input
+                v-model="form.wechat_connect_mp_app_secret"
+                data-testid="wechat-payment-app-secret"
+                type="password"
+                autocomplete="new-password"
+                class="input mt-2"
+                :placeholder="form.wechat_connect_mp_app_secret_configured
+                  ? localText('已配置，留空保持', 'Configured; leave empty to retain')
+                  : ''"
+              />
+            </label>
+          </section>
           <!-- Payment System Settings -->
           <div class="card">
             <div
@@ -8440,28 +5732,44 @@
 
         <div v-show="activeTab === 'email'" class="space-y-6">
           <!-- Email disabled hint - show when email_verify_enabled is off -->
-          <div v-if="!form.email_verify_enabled" class="card">
-            <div class="p-6">
-              <div class="flex items-start gap-3">
-                <Icon
-                  name="mail"
-                  size="md"
-                  class="mt-0.5 flex-shrink-0 text-gray-400 dark:text-gray-500"
-                />
+
+
+          <!-- SMTP Settings - Only show when email verification is enabled -->
+
+
+          <!-- Send Test Email - Only show when email verification is enabled -->
+
+
+          <!-- 订阅到期提醒 -->
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h3 class="text-base font-medium text-gray-900 dark:text-white">
+                {{ t("admin.settings.subscriptionExpiryNotify.title") }}
+              </h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {{ t("admin.settings.subscriptionExpiryNotify.description") }}
+              </p>
+            </div>
+            <div class="px-6 py-6">
+              <div class="flex items-center justify-between gap-4">
                 <div>
-                  <h3 class="font-medium text-gray-900 dark:text-white">
-                    {{ t("admin.settings.emailTabDisabledTitle") }}
-                  </h3>
-                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.emailTabDisabledHint") }}
+                  <label
+                    class="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.subscriptionExpiryNotify.enabled") }}
+                  </label>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.subscriptionExpiryNotify.enabledHint") }}
                   </p>
                 </div>
+                <Toggle v-model="form.subscription_expiry_notify_enabled" />
               </div>
             </div>
           </div>
 
-          <!-- SMTP Settings - Only show when email verification is enabled -->
-          <div v-if="form.email_verify_enabled" class="card">
+          <div class="card">
             <div
               class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -8622,9 +5930,7 @@
               </div>
             </div>
           </div>
-
-          <!-- Send Test Email - Only show when email verification is enabled -->
-          <div v-if="form.email_verify_enabled" class="card">
+<div class="card">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
             >
@@ -8689,37 +5995,7 @@
               </div>
             </div>
           </div>
-
-          <!-- 订阅到期提醒 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h3 class="text-base font-medium text-gray-900 dark:text-white">
-                {{ t("admin.settings.subscriptionExpiryNotify.title") }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.subscriptionExpiryNotify.description") }}
-              </p>
-            </div>
-            <div class="px-6 py-6">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <label
-                    class="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.subscriptionExpiryNotify.enabled") }}
-                  </label>
-                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.subscriptionExpiryNotify.enabledHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.subscription_expiry_notify_enabled" />
-              </div>
-            </div>
-          </div>
-
-          <EmailTemplateEditor />
+<EmailTemplateEditor />
 
           <!-- Balance Low Notification -->
           <div class="card">
@@ -8931,8 +6207,6 @@
         @confirm="handleAffiliateConfirm"
         @cancel="cancelAffiliateConfirm"
       />
-      <!-- 关闭 step-up 开关等敏感保存操作触发的 TOTP 二次验证 -->
-      <TotpStepUpDialog :controller="settingsStepUp" />
     </div>
   </AppLayout>
 </template>
@@ -8942,34 +6216,9 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { listPlatformIds } from "@/constants/platformCatalog";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
-import {
-  appendAuthSourceDefaultsToUpdateRequest,
-  buildAuthSourceDefaultsState,
-  normalizeAccountSchedulingThresholdsMap,
-  normalizePlatformQuotasMap,
-  sanitizeAccountSchedulingThresholdsMap,
-  sanitizePlatformQuotasMap,
-  SCHEDULING_THRESHOLD_PLATFORMS,
-  defaultWeChatConnectScopesForMode,
-  deriveWeChatConnectStoredMode,
-  normalizeDefaultSubscriptionSettings,
-  resolveWeChatConnectModeCapabilities,
-} from "@/api/admin/settings";
+import { normalizeAccountSchedulingThresholdsMap, normalizePlatformQuotasMap, sanitizeAccountSchedulingThresholdsMap, sanitizePlatformQuotasMap, SCHEDULING_THRESHOLD_PLATFORMS } from "@/api/admin/settings";
+import type { SystemSettings, UpdateSettingsRequest, DefaultPlatformQuotasMap, OpenAIFastPolicyRule, WebSearchEmulationConfig, WebSearchProviderConfig, WebSearchTestResult } from "@/api/admin/settings";
 import type {
-  AuthSourceDefaultsState,
-  AuthSourceType,
-  SystemSettings,
-  UpdateSettingsRequest,
-  DefaultSubscriptionSetting,
-  DefaultPlatformQuotasMap,
-  OpenAIFastPolicyRule,
-  WeChatConnectMode,
-  WebSearchEmulationConfig,
-  WebSearchProviderConfig,
-  WebSearchTestResult,
-} from "@/api/admin/settings";
-import type {
-  AdminGroup,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -8988,8 +6237,6 @@ import {
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import PaymentProviderList from "@/components/payment/PaymentProviderList.vue";
 import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vue";
-import GroupBadge from "@/components/common/GroupBadge.vue";
-import GroupOptionItem from "@/components/common/GroupOptionItem.vue";
 import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
@@ -9003,29 +6250,13 @@ import {
   type RechargeBonusMode,
   type RechargeBonusTierDraft,
 } from "@/utils/rechargeBonus";
-import RegistrationEmailBlacklistEditor from "@/components/admin/settings/RegistrationEmailBlacklistEditor.vue";
 import OpenAIFastPolicyUserSelector from "@/views/admin/settings/OpenAIFastPolicyUserSelector.vue";
-import { useClipboard } from "@/composables/useClipboard";
-import {
-  useStepUp,
-  isStepUpCancelled,
-  isStepUpBlocked,
-  stepUpBlockReason,
-} from "@/composables/useStepUp";
-import AdminAccessKeysSettings from "@/components/admin/settings/AdminAccessKeysSettings.vue";
-import TotpStepUpDialog from "@/components/auth/TotpStepUpDialog.vue";
 import { affiliatesAPI, type AffiliateAdminEntry, type SimpleUser as AffiliateSimpleUser } from "@/api/admin/affiliates";
 import { extractApiErrorMessage, extractI18nErrorMessage } from "@/utils/apiError";
 import { formatBalanceRechargeMultiplier } from "@/utils/rechargeBonus";
 import { useAppStore } from "@/stores";
 import { useAdminSettingsStore } from "@/stores/adminSettings";
 import { normalizeVisibleMethod } from "@/components/payment/paymentFlow";
-import {
-  isRegistrationEmailSuffixDomainValid,
-  normalizeRegistrationEmailSuffixDomain,
-  normalizeRegistrationEmailSuffixDomains,
-  parseRegistrationEmailSuffixWhitelistInput,
-} from "@/utils/registrationEmailPolicy";
 import {
   parseFingerprintSignalsToRows,
   serializeFingerprintRowsToJSON,
@@ -9035,8 +6266,6 @@ import {
 
 const { t, locale } = useI18n();
 const appStore = useAppStore();
-// 关闭 step-up 开关是敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 码重试
-const settingsStepUp = useStepUp();
 const adminSettingsStore = useAdminSettingsStore();
 const isZhLocale = computed(() => locale.value.startsWith("zh"));
 
@@ -9129,7 +6358,6 @@ function handleSettingsTabKeydown(event: KeyboardEvent, tab: SettingsTab): void 
   focusSettingsTab(nextTab);
 }
 
-const { copyToClipboard } = useClipboard();
 
 const loading = ref(true);
 const loadFailed = ref(false);
@@ -9138,18 +6366,8 @@ const testingSmtp = ref(false);
 const sendingTestEmail = ref(false);
 const smtpPasswordManuallyEdited = ref(false);
 const testEmailAddress = ref("");
-const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
-const registrationEmailSuffixWhitelistDraft = ref("");
 const forwardedClientIpHeaderDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
-
-// Admin API Key 状态
-const adminApiKeyLoading = ref(true);
-const adminApiKeyExists = ref(false);
-const adminApiKeyMasked = ref("");
-const adminApiKeyOperating = ref(false);
-const newAdminApiKey = ref("");
-const subscriptionGroups = ref<AdminGroup[]>([]);
 
 // Upstream billing probe state
 const upstreamBillingProbeLoading = ref(true);
@@ -9665,47 +6883,17 @@ function resetClaudeOAuthSystemPromptBlocks(): void {
   syncClaudeOAuthSystemPromptBlocksFormField();
 }
 
-
-interface DefaultSubscriptionGroupOption {
-  value: number;
-  label: string;
-  description: string | null;
-  platform: AdminGroup["platform"];
-  subscriptionType: AdminGroup["subscription_type"];
-  rate: number;
-  [key: string]: unknown;
-}
-
 type SettingsForm = Omit<
   SystemSettings,
-  | "wechat_connect_open_enabled"
-  | "wechat_connect_mp_enabled"
-  | "wechat_connect_mobile_enabled"
-  | "openai_oauth_scheduling_rate_multiplier"
+  "wechat_connect_mp_enabled" | "openai_oauth_scheduling_rate_multiplier"
 > & {
   /** Form always binds a concrete boolean (SystemSettings marks this optional). */
   channel_monitor_hide_throughput: boolean;
   channel_monitor_show_quota: boolean;
   channel_monitor_hide_user_ranking: boolean;
   smtp_password: string;
-  turnstile_secret_key: string;
-  tencent_captcha_app_secret_key: string;
-  tencent_captcha_cloud_secret_id: string;
-  tencent_captcha_cloud_secret_key: string;
-  aliyun_captcha_access_key_secret: string;
-  linuxdo_connect_client_secret: string;
-  dingtalk_connect_client_secret: string;
-  wechat_connect_app_secret: string;
-  wechat_connect_open_app_secret: string;
   wechat_connect_mp_app_secret: string;
-  wechat_connect_mobile_app_secret: string;
-  wechat_connect_open_enabled: boolean;
   wechat_connect_mp_enabled: boolean;
-  wechat_connect_mobile_enabled: boolean;
-  oidc_connect_client_secret: string;
-  github_oauth_client_secret: string;
-  google_oauth_client_secret: string;
-  force_email_on_third_party_signup: boolean;
   openai_low_upstream_rate_priority_enabled: boolean;
   openai_oauth_scheduling_rate_multiplier: number | "" | null;
   openai_advanced_scheduler_enabled: boolean;
@@ -9740,27 +6928,11 @@ function platformQuotaRows(map: DefaultPlatformQuotasMap | undefined): string[] 
 }
 
 const form = reactive<SettingsForm>({
-  registration_enabled: true,
-  email_verify_enabled: false,
-  registration_email_suffix_whitelist: [],
-  registration_email_domain_quota_enabled: false,
-  promo_code_enabled: true,
-  invitation_code_enabled: false,
-  password_reset_enabled: false,
-  totp_enabled: false,
-  totp_encryption_key_configured: false,
-  passkey_enabled: false,
-  passkey_configured: false,
-  passkey_rp_id: "",
-  passkey_rp_origins: [],
-  session_binding_enabled: false,
-  step_up_enabled: false,
   audit_log_retention_days: 180,
   login_agreement_enabled: false,
   login_agreement_mode: "modal",
   login_agreement_updated_at: "2026-03-31",
   login_agreement_documents: defaultLoginAgreementDocuments(),
-  default_balance: 0,
   default_platform_quotas: normalizePlatformQuotasMap() as DefaultPlatformQuotasMap,
   account_scheduling_thresholds: normalizeAccountSchedulingThresholdsMap(),
   affiliate_rebate_rate: 20,
@@ -9768,10 +6940,6 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
   affiliate_admin_recharge_enabled: false,
-  default_concurrency: 1,
-  default_subscriptions: [],
-  force_email_on_third_party_signup: false,
-  default_user_rpm_limit: 0,
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
@@ -9837,110 +7005,12 @@ const form = reactive<SettingsForm>({
   smtp_from_email: "",
   smtp_from_name: "",
   smtp_use_tls: true,
-  // Cloudflare Turnstile
-  turnstile_enabled: false,
-  turnstile_site_key: "",
-  turnstile_secret_key: "",
-  turnstile_secret_key_configured: false,
-  tencent_captcha_enabled: false,
-  tencent_captcha_app_id: "",
-  tencent_captcha_app_secret_key: "",
-  tencent_captcha_app_secret_key_configured: false,
-  tencent_captcha_cloud_secret_id: "",
-  tencent_captcha_cloud_secret_id_configured: false,
-  tencent_captcha_cloud_secret_key: "",
-  tencent_captcha_cloud_secret_key_configured: false,
-  tencent_captcha_region: "cn",
-  aliyun_captcha_enabled: false,
-  aliyun_captcha_access_key_id: "",
-  aliyun_captcha_access_key_secret: "",
-  aliyun_captcha_access_key_secret_configured: false,
-  aliyun_captcha_scene_id: "",
-  aliyun_captcha_prefix: "",
-  aliyun_captcha_region: "cn",
   api_key_acl_trust_forwarded_ip: true,
   forwarded_client_ip_headers: [],
-  // LinuxDo Connect OAuth 登录
-  linuxdo_connect_enabled: false,
-  linuxdo_connect_client_id: "",
-  linuxdo_connect_client_secret: "",
-  linuxdo_connect_client_secret_configured: false,
-  linuxdo_connect_redirect_url: "",
-  // DingTalk Connect OAuth 登录
-  dingtalk_connect_enabled: false,
-  dingtalk_connect_client_id: "",
-  dingtalk_connect_client_secret: "",
-  dingtalk_connect_client_secret_configured: false,
-  dingtalk_connect_redirect_url: "",
-  dingtalk_connect_corp_restriction_policy: "none",
-  dingtalk_connect_internal_corp_id: "",
-  dingtalk_connect_bypass_registration: false,
-  dingtalk_connect_sync_corp_email: false,
-  dingtalk_connect_sync_display_name: false,
-  dingtalk_connect_sync_dept: false,
-  dingtalk_connect_sync_corp_email_attr_key: "dingtalk_email",
-  dingtalk_connect_sync_display_name_attr_key: "dingtalk_name",
-  dingtalk_connect_sync_dept_attr_key: "dingtalk_department",
-  dingtalk_connect_sync_corp_email_attr_name: localText("钉钉企业邮箱", "DingTalk Corporate Email"),
-  dingtalk_connect_sync_display_name_attr_name: localText("钉钉姓名", "DingTalk Name"),
-  dingtalk_connect_sync_dept_attr_name: localText("钉钉部门", "DingTalk Department"),
-  wechat_connect_enabled: false,
-  wechat_connect_app_id: "",
-  wechat_connect_app_secret: "",
-  wechat_connect_app_secret_configured: false,
-  wechat_connect_open_app_id: "",
-  wechat_connect_open_app_secret: "",
-  wechat_connect_open_app_secret_configured: false,
   wechat_connect_mp_app_id: "",
   wechat_connect_mp_app_secret: "",
   wechat_connect_mp_app_secret_configured: false,
-  wechat_connect_mobile_app_id: "",
-  wechat_connect_mobile_app_secret: "",
-  wechat_connect_mobile_app_secret_configured: false,
-  wechat_connect_open_enabled: false,
   wechat_connect_mp_enabled: false,
-  wechat_connect_mobile_enabled: false,
-  wechat_connect_mode: "open",
-  wechat_connect_scopes: "snsapi_login",
-  wechat_connect_redirect_url: "",
-  wechat_connect_frontend_redirect_url: "/auth/wechat/callback",
-  // Generic OIDC OAuth 登录
-  oidc_connect_enabled: false,
-  oidc_connect_provider_name: "OIDC",
-  oidc_connect_client_id: "",
-  oidc_connect_client_secret: "",
-  oidc_connect_client_secret_configured: false,
-  oidc_connect_issuer_url: "",
-  oidc_connect_discovery_url: "",
-  oidc_connect_authorize_url: "",
-  oidc_connect_token_url: "",
-  oidc_connect_userinfo_url: "",
-  oidc_connect_jwks_url: "",
-  oidc_connect_scopes: "openid email profile",
-  oidc_connect_redirect_url: "",
-  oidc_connect_frontend_redirect_url: "/auth/oidc/callback",
-  oidc_connect_token_auth_method: "client_secret_post",
-  oidc_connect_use_pkce: false,
-  oidc_connect_validate_id_token: false,
-  oidc_connect_allowed_signing_algs: "RS256,ES256,PS256",
-  oidc_connect_clock_skew_seconds: 120,
-  oidc_connect_require_email_verified: false,
-  oidc_connect_userinfo_email_path: "",
-  oidc_connect_userinfo_id_path: "",
-  oidc_connect_userinfo_username_path: "",
-  // GitHub / Google 邮箱快捷登录
-  github_oauth_enabled: false,
-  github_oauth_client_id: "",
-  github_oauth_client_secret: "",
-  github_oauth_client_secret_configured: false,
-  github_oauth_redirect_url: "",
-  github_oauth_frontend_redirect_url: "/auth/oauth/callback",
-  google_oauth_enabled: false,
-  google_oauth_client_id: "",
-  google_oauth_client_secret: "",
-  google_oauth_client_secret_configured: false,
-  google_oauth_redirect_url: "",
-  google_oauth_frontend_redirect_url: "/auth/oauth/callback",
   // Model fallback
   enable_model_fallback: false,
   fallback_model_anthropic: "claude-3-5-sonnet-20241022",
@@ -10037,18 +7107,6 @@ const form = reactive<SettingsForm>({
   allow_user_view_error_requests: false,
 });
 
-// 人机验证 UI 状态：单卡片「总开关 + 服务商单选」，落库仍是三个独立
-// enabled 键（与上游一致），由下面的映射保证同一时间至多一家启用。
-type CaptchaProviderSelection = "turnstile" | "tencent" | "aliyun";
-
-const captchaProviderSelection = ref<CaptchaProviderSelection>("turnstile");
-
-function applyCaptchaSelection(provider: CaptchaProviderSelection | null): void {
-  form.turnstile_enabled = provider === "turnstile";
-  form.tencent_captcha_enabled = provider === "tencent";
-  form.aliyun_captcha_enabled = provider === "aliyun";
-}
-
 // Keep the settings API representation as user IDs; the selector displays emails.
 const riskControlAllowlistedUserIds = computed<number[]>({
   get: () => Array.from(new Set(
@@ -10061,46 +7119,6 @@ const riskControlAllowlistedUserIds = computed<number[]>({
     form.cyber_policy_user_allowlist = ids.join(",");
   },
 });
-
-const captchaMasterEnabled = computed({
-  get: () =>
-    form.turnstile_enabled ||
-    form.tencent_captcha_enabled ||
-    form.aliyun_captcha_enabled,
-  set: (enabled: boolean) =>
-    applyCaptchaSelection(enabled ? captchaProviderSelection.value : null),
-});
-
-function selectCaptchaProvider(provider: CaptchaProviderSelection): void {
-  captchaProviderSelection.value = provider;
-  applyCaptchaSelection(provider);
-}
-
-// 天御中国站与国际站是两套独立账号体系，控制台与文档入口不通用，
-// 按当前选择的站点给出对应链接，避免管理员在错误的控制台里找不到 CaptchaAppId。
-const tencentCaptchaLinks = computed(() =>
-  form.tencent_captcha_region === "intl"
-    ? {
-        console: "https://console.tencentcloud.com/captcha/graphical",
-        cloudKeys: "https://console.tencentcloud.com/cam/capi",
-        webDocs: "https://www.tencentcloud.com/document/product/1159/49680",
-      }
-    : {
-        console: "https://console.cloud.tencent.com/captcha",
-        cloudKeys: "https://console.cloud.tencent.com/cam/capi",
-        webDocs: "https://cloud.tencent.com/document/product/1110/36841",
-      },
-);
-
-function syncCaptchaProviderSelection(): void {
-  if (form.tencent_captcha_enabled) {
-    captchaProviderSelection.value = "tencent";
-  } else if (form.aliyun_captcha_enabled) {
-    captchaProviderSelection.value = "aliyun";
-  } else if (form.turnstile_enabled) {
-    captchaProviderSelection.value = "turnstile";
-  }
-}
 
 type OpenAIAdvancedSchedulerOverrideKey =
   | "openai_advanced_scheduler_lb_top_k"
@@ -10205,57 +7223,6 @@ const openAIAdvancedSchedulerWeightFields = computed<
     },
   ];
 });
-
-const authSourceDefaults = reactive<AuthSourceDefaultsState>(
-  buildAuthSourceDefaultsState({}),
-);
-
-const authSourceDefaultsMeta = computed(() => [
-  {
-    source: "email" as AuthSourceType,
-    title: t("admin.settings.authSourceDefaults.sources.email.title"),
-    description: t("admin.settings.authSourceDefaults.sources.email.description"),
-  },
-  {
-    source: "linuxdo" as AuthSourceType,
-    title: t("admin.settings.authSourceDefaults.sources.linuxdo.title"),
-    description: t("admin.settings.authSourceDefaults.sources.linuxdo.description"),
-  },
-  {
-    source: "oidc" as AuthSourceType,
-    title: t("admin.settings.authSourceDefaults.sources.oidc.title"),
-    description: t("admin.settings.authSourceDefaults.sources.oidc.description"),
-  },
-  {
-    source: "wechat" as AuthSourceType,
-    title: t("admin.settings.authSourceDefaults.sources.wechat.title"),
-    description: t("admin.settings.authSourceDefaults.sources.wechat.description"),
-  },
-  {
-    source: "github" as AuthSourceType,
-    title: "GitHub",
-    description: localText(
-      "通过 GitHub 已验证邮箱首次注册或首次绑定时应用。",
-      "Applied on first signup or first bind through a verified GitHub email.",
-    ),
-  },
-  {
-    source: "google" as AuthSourceType,
-    title: "Google",
-    description: localText(
-      "通过 Google 已验证邮箱首次注册或首次绑定时应用。",
-      "Applied on first signup or first bind through a verified Google email.",
-    ),
-  },
-  {
-    source: "dingtalk" as AuthSourceType,
-    title: t("auth.dingtalkProviderName"),
-    description: localText(
-      "通过钉钉首次注册或首次绑定时应用。",
-      "Applied on first signup or first bind through DingTalk.",
-    ),
-  },
-]);
 
 // Proxies for web search emulation ProxySelector
 const webSearchProxies = ref<Proxy[]>([]);
@@ -10434,99 +7401,6 @@ async function saveWebSearchConfig(): Promise<boolean> {
   }
 }
 
-const defaultSubscriptionGroupOptions = computed<
-  DefaultSubscriptionGroupOption[]
->(() =>
-  subscriptionGroups.value.map((group) => ({
-    value: group.id,
-    label: group.name,
-    description: group.description,
-    platform: group.platform,
-    subscriptionType: group.subscription_type,
-    rate: group.rate_multiplier,
-  })),
-);
-
-const registrationEmailSuffixWhitelistSeparatorKeys = new Set([
-  " ",
-  ",",
-  "，",
-  "Enter",
-  "Tab",
-]);
-
-function removeRegistrationEmailSuffixWhitelistTag(suffix: string) {
-  registrationEmailSuffixWhitelistTags.value =
-    registrationEmailSuffixWhitelistTags.value.filter(
-      (item) => item !== suffix,
-    );
-}
-
-function addRegistrationEmailSuffixWhitelistTag(raw: string) {
-  const suffix = normalizeRegistrationEmailSuffixDomain(raw);
-  if (
-    !isRegistrationEmailSuffixDomainValid(suffix) ||
-    registrationEmailSuffixWhitelistTags.value.includes(suffix)
-  ) {
-    return;
-  }
-  registrationEmailSuffixWhitelistTags.value = [
-    ...registrationEmailSuffixWhitelistTags.value,
-    suffix,
-  ];
-}
-
-function commitRegistrationEmailSuffixWhitelistDraft() {
-  if (!registrationEmailSuffixWhitelistDraft.value) {
-    return;
-  }
-  addRegistrationEmailSuffixWhitelistTag(
-    registrationEmailSuffixWhitelistDraft.value,
-  );
-  registrationEmailSuffixWhitelistDraft.value = "";
-}
-
-function handleRegistrationEmailSuffixWhitelistDraftInput() {
-  registrationEmailSuffixWhitelistDraft.value =
-    normalizeRegistrationEmailSuffixDomain(
-      registrationEmailSuffixWhitelistDraft.value,
-    );
-}
-
-function handleRegistrationEmailSuffixWhitelistDraftKeydown(
-  event: KeyboardEvent,
-) {
-  if (event.isComposing) {
-    return;
-  }
-
-  if (registrationEmailSuffixWhitelistSeparatorKeys.has(event.key)) {
-    event.preventDefault();
-    commitRegistrationEmailSuffixWhitelistDraft();
-    return;
-  }
-
-  if (
-    event.key === "Backspace" &&
-    !registrationEmailSuffixWhitelistDraft.value &&
-    registrationEmailSuffixWhitelistTags.value.length > 0
-  ) {
-    registrationEmailSuffixWhitelistTags.value.pop();
-  }
-}
-
-function handleRegistrationEmailSuffixWhitelistPaste(event: ClipboardEvent) {
-  const text = event.clipboardData?.getData("text") || "";
-  if (!text.trim()) {
-    return;
-  }
-  event.preventDefault();
-  const tokens = parseRegistrationEmailSuffixWhitelistInput(text);
-  for (const token of tokens) {
-    addRegistrationEmailSuffixWhitelistTag(token);
-  }
-}
-
 const forwardedClientIpHeaderSeparatorKeys = new Set([
   " ",
   ",",
@@ -10678,133 +7552,6 @@ const addQuotaNotifyEmail = () => {
 
 const currentOrigin =
   typeof window !== "undefined" ? window.location.origin : "";
-
-function buildApiCallbackUrl(path: string): string {
-  const base = (form.api_base_url || currentOrigin).replace(/\/+$/, "");
-  const apiRoot = base.endsWith("/api/v1") ? base : `${base}/api/v1`;
-  return `${apiRoot}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-// LinuxDo OAuth redirect URL suggestion
-const linuxdoRedirectUrlSuggestion = computed(() => {
-  return buildApiCallbackUrl("/auth/oauth/linuxdo/callback");
-});
-
-async function setAndCopyLinuxdoRedirectUrl() {
-  const url = linuxdoRedirectUrlSuggestion.value;
-  if (!url) return;
-
-  form.linuxdo_connect_redirect_url = url;
-  await copyToClipboard(
-    url,
-    t("admin.settings.linuxdo.redirectUrlSetAndCopied"),
-  );
-}
-
-type EmailOAuthProvider = "github" | "google";
-
-const githubOAuthRedirectUrlSuggestion = computed(() => {
-  return buildApiCallbackUrl("/auth/oauth/github/callback");
-});
-
-const googleOAuthRedirectUrlSuggestion = computed(() => {
-  return buildApiCallbackUrl("/auth/oauth/google/callback");
-});
-
-async function setAndCopyEmailOAuthRedirectUrl(provider: EmailOAuthProvider) {
-  const url =
-    provider === "github"
-      ? githubOAuthRedirectUrlSuggestion.value
-      : googleOAuthRedirectUrlSuggestion.value;
-  if (!url) return;
-
-  if (provider === "github") {
-    form.github_oauth_redirect_url = url;
-  } else {
-    form.google_oauth_redirect_url = url;
-  }
-  await copyToClipboard(
-    url,
-    localText("回调地址已写入并复制。", "Callback URL set and copied."),
-  );
-}
-
-const wechatRedirectUrlSuggestion = computed(() => {
-  return buildApiCallbackUrl("/auth/oauth/wechat/callback");
-});
-
-function syncWeChatConnectMode(preferredMode?: WeChatConnectMode) {
-  if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-    if (preferredMode === "mobile") {
-      form.wechat_connect_mp_enabled = false;
-    } else {
-      form.wechat_connect_mobile_enabled = false;
-    }
-  }
-
-  const capabilities = resolveWeChatConnectModeCapabilities(
-    form.wechat_connect_open_enabled,
-    form.wechat_connect_mp_enabled,
-    form.wechat_connect_mobile_enabled,
-    form.wechat_connect_mode,
-  );
-  form.wechat_connect_open_enabled = capabilities.openEnabled;
-  form.wechat_connect_mp_enabled = capabilities.mpEnabled;
-  form.wechat_connect_mobile_enabled = capabilities.mobileEnabled;
-  form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-    capabilities.openEnabled,
-    capabilities.mpEnabled,
-    capabilities.mobileEnabled,
-    form.wechat_connect_mode,
-  );
-  form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-    form.wechat_connect_mode,
-  );
-}
-
-function handleWeChatOpenEnabledChange(value: boolean) {
-  form.wechat_connect_open_enabled = value;
-  syncWeChatConnectMode(value ? "open" : undefined);
-}
-
-function handleWeChatMPEnabledChange(value: boolean) {
-  form.wechat_connect_mp_enabled = value;
-  if (value) {
-    form.wechat_connect_mobile_enabled = false;
-  }
-  syncWeChatConnectMode(value ? "mp" : undefined);
-}
-
-function handleWeChatMobileEnabledChange(value: boolean) {
-  form.wechat_connect_mobile_enabled = value;
-  if (value) {
-    form.wechat_connect_mp_enabled = false;
-  }
-  syncWeChatConnectMode(value ? "mobile" : undefined);
-}
-
-async function setAndCopyWeChatRedirectUrl() {
-  const url = wechatRedirectUrlSuggestion.value;
-  if (!url) return;
-
-  form.wechat_connect_redirect_url = url;
-  await copyToClipboard(
-    url,
-    t("admin.settings.wechatConnect.redirectUrlSetAndCopied"),
-  );
-}
-
-const oidcRedirectUrlSuggestion = computed(() => {
-  return buildApiCallbackUrl("/auth/oauth/oidc/callback");
-});
-
-async function setAndCopyOIDCRedirectUrl() {
-  const url = oidcRedirectUrlSuggestion.value;
-  if (!url) return;
-
-  form.oidc_connect_redirect_url = url;
-  await copyToClipboard(url, t("admin.settings.oidc.redirectUrlSetAndCopied"));
-}
 
 // Custom menu item management
 function addMenuItem() {
@@ -11025,7 +7772,6 @@ async function loadSettings() {
     if (settings.openai_oauth_scheduling_rate_multiplier === null) {
       form.openai_oauth_scheduling_rate_multiplier = null;
     }
-    syncCaptchaProviderSelection();
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
         defaultClaudeOAuthSystemPromptBlocks;
@@ -11068,7 +7814,6 @@ async function loadSettings() {
             content_md: doc.content_md || "",
           }))
         : defaultLoginAgreementDocuments();
-    Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(settings));
     form.payment_recharge_bonus_tiers = normalizeRechargeBonusTiers(
       settings.payment_recharge_bonus_tiers,
     );
@@ -11081,13 +7826,6 @@ async function loadSettings() {
       settings.account_scheduling_thresholds,
     );
     form.backend_mode_enabled = settings.backend_mode_enabled;
-    form.default_subscriptions = normalizeDefaultSubscriptionSettings(
-      settings.default_subscriptions,
-    );
-    registrationEmailSuffixWhitelistTags.value =
-      normalizeRegistrationEmailSuffixDomains(
-        settings.registration_email_suffix_whitelist,
-      );
     form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
       settings.forwarded_client_ip_headers,
     );
@@ -11097,74 +7835,9 @@ async function loadSettings() {
         ? settings.table_page_size_options
         : [10, 20, 50, 100],
     );
-    registrationEmailSuffixWhitelistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
-    form.turnstile_secret_key = "";
-    form.tencent_captcha_app_secret_key = "";
-    form.tencent_captcha_cloud_secret_id = "";
-    form.tencent_captcha_cloud_secret_key = "";
-    form.aliyun_captcha_access_key_secret = "";
-    form.linuxdo_connect_client_secret = "";
-    form.dingtalk_connect_client_secret = "";
-    form.github_oauth_client_secret = "";
-    form.google_oauth_client_secret = "";
-    form.wechat_connect_app_secret = "";
-    form.wechat_connect_open_app_secret = "";
     form.wechat_connect_mp_app_secret = "";
-    form.wechat_connect_mobile_app_secret = "";
-    const wechatCapabilities = resolveWeChatConnectModeCapabilities(
-      settings.wechat_connect_open_enabled,
-      settings.wechat_connect_mp_enabled,
-      settings.wechat_connect_mobile_enabled,
-      settings.wechat_connect_mode,
-    );
-    form.wechat_connect_open_enabled = wechatCapabilities.openEnabled;
-    form.wechat_connect_mp_enabled = wechatCapabilities.mpEnabled;
-    form.wechat_connect_mobile_enabled = wechatCapabilities.mobileEnabled;
-    form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-      wechatCapabilities.openEnabled,
-      wechatCapabilities.mpEnabled,
-      wechatCapabilities.mobileEnabled,
-      settings.wechat_connect_mode,
-    );
-    const legacyWeChatAppID = String(settings.wechat_connect_app_id || "").trim();
-    const legacyWeChatSecretConfigured = Boolean(
-      settings.wechat_connect_app_secret_configured,
-    );
-    if (!form.wechat_connect_open_app_id && wechatCapabilities.openEnabled) {
-      form.wechat_connect_open_app_id = legacyWeChatAppID;
-    }
-    if (!form.wechat_connect_mp_app_id && wechatCapabilities.mpEnabled) {
-      form.wechat_connect_mp_app_id = legacyWeChatAppID;
-    }
-    if (!form.wechat_connect_mobile_app_id && wechatCapabilities.mobileEnabled) {
-      form.wechat_connect_mobile_app_id = legacyWeChatAppID;
-    }
-    if (
-      !form.wechat_connect_open_app_secret_configured &&
-      wechatCapabilities.openEnabled
-    ) {
-      form.wechat_connect_open_app_secret_configured =
-        legacyWeChatSecretConfigured;
-    }
-    if (
-      !form.wechat_connect_mp_app_secret_configured &&
-      wechatCapabilities.mpEnabled
-    ) {
-      form.wechat_connect_mp_app_secret_configured = legacyWeChatSecretConfigured;
-    }
-    if (
-      !form.wechat_connect_mobile_app_secret_configured &&
-      wechatCapabilities.mobileEnabled
-    ) {
-      form.wechat_connect_mobile_app_secret_configured =
-        legacyWeChatSecretConfigured;
-    }
-    form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-      form.wechat_connect_mode,
-    );
-    form.oidc_connect_client_secret = "";
 
     // Load OpenAI fast/flex policy rules from bulk settings.
     // 仅当 payload 真的包含该字段时填充并标记为已加载；否则保持表单空值，
@@ -11194,74 +7867,6 @@ async function loadSettings() {
   } finally {
     loading.value = false;
   }
-}
-
-async function loadSubscriptionGroups() {
-  try {
-    const groups = await adminAPI.groups.getAll();
-    subscriptionGroups.value = groups.filter(
-      (group) =>
-        group.subscription_type === "subscription" && group.status === "active",
-    );
-  } catch (_error: unknown) {
-    subscriptionGroups.value = [];
-  }
-}
-
-function findNextAvailableSubscriptionGroup(
-  existingGroupIDs: number[],
-): AdminGroup | undefined {
-  const existing = new Set(existingGroupIDs);
-  return subscriptionGroups.value.find((group) => !existing.has(group.id));
-}
-
-function addDefaultSubscription() {
-  if (subscriptionGroups.value.length === 0) return;
-  const candidate = findNextAvailableSubscriptionGroup(
-    form.default_subscriptions.map((item) => item.group_id),
-  );
-  if (!candidate) return;
-  form.default_subscriptions.push({
-    group_id: candidate.id,
-    validity_days: 30,
-  });
-}
-
-function removeDefaultSubscription(index: number) {
-  form.default_subscriptions.splice(index, 1);
-}
-
-function addAuthSourceDefaultSubscription(source: AuthSourceType) {
-  if (subscriptionGroups.value.length === 0) return;
-  const candidate = findNextAvailableSubscriptionGroup(
-    authSourceDefaults[source].subscriptions.map((item) => item.group_id),
-  );
-  if (!candidate) return;
-  authSourceDefaults[source].subscriptions.push({
-    group_id: candidate.id,
-    validity_days: 30,
-  });
-}
-
-function removeAuthSourceDefaultSubscription(
-  source: AuthSourceType,
-  index: number,
-) {
-  authSourceDefaults[source].subscriptions.splice(index, 1);
-}
-
-function findDuplicateDefaultSubscription(
-  subscriptions: DefaultSubscriptionSetting[],
-): DefaultSubscriptionSetting | undefined {
-  const seenGroupIDs = new Set<number>();
-
-  return subscriptions.find((item) => {
-    if (seenGroupIDs.has(item.group_id)) {
-      return true;
-    }
-    seenGroupIDs.add(item.group_id);
-    return false;
-  });
 }
 
 // 站点类型：由 subscription_enabled 与 payment_balance_disabled 两个开关派生的单选，
@@ -11358,52 +7963,6 @@ async function saveSettings() {
     form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
       form.forwarded_client_ip_headers,
     );
-
-    const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionSettings(
-      form.default_subscriptions,
-    );
-    const duplicateDefaultSubscription = findDuplicateDefaultSubscription(
-      normalizedDefaultSubscriptions,
-    );
-    if (duplicateDefaultSubscription) {
-      appStore.showError(
-        t("admin.settings.defaults.defaultSubscriptionsDuplicate", {
-          groupId: duplicateDefaultSubscription.group_id,
-        }),
-      );
-      return;
-    }
-
-    for (const authSource of authSourceDefaultsMeta.value) {
-      authSourceDefaults[authSource.source].subscriptions =
-        normalizeDefaultSubscriptionSettings(
-          authSourceDefaults[authSource.source].subscriptions,
-        );
-      const duplicate = findDuplicateDefaultSubscription(
-        authSourceDefaults[authSource.source].subscriptions,
-      );
-      if (duplicate) {
-        appStore.showError(
-          `${authSource.title}: ${t(
-            "admin.settings.defaults.defaultSubscriptionsDuplicate",
-            {
-              groupId: duplicate.group_id,
-            },
-          )}`,
-        );
-        return;
-      }
-    }
-
-    if (form.wechat_connect_mp_enabled && form.wechat_connect_mobile_enabled) {
-      appStore.showError(
-        localText(
-          "公众号和移动应用不能同时启用。",
-          "Official Account and Mobile App cannot be enabled at the same time.",
-        ),
-      );
-      return;
-    }
     // Validate URL fields — novalidate disables browser-native checks, so we validate here
     const isValidHttpUrl = (url: string): boolean => {
       if (!url) return true;
@@ -11417,13 +7976,6 @@ async function saveSettings() {
     // Optional URL fields: auto-clear invalid values so they don't cause backend 400 errors
     if (!isValidHttpUrl(form.frontend_url)) form.frontend_url = "";
     if (!isValidHttpUrl(form.doc_url)) form.doc_url = "";
-    syncWeChatConnectMode();
-    const wechatStoredMode = deriveWeChatConnectStoredMode(
-      form.wechat_connect_open_enabled,
-      form.wechat_connect_mp_enabled,
-      form.wechat_connect_mobile_enabled,
-      form.wechat_connect_mode,
-    );
     const claudeOAuthSystemPromptBlocksJSON =
       serializeClaudeOAuthSystemPromptBlocksToJSON(
         claudeOAuthSystemPromptBlocks.value,
@@ -11442,21 +7994,6 @@ async function saveSettings() {
     }
 
     const payload: UpdateSettingsRequest = {
-      registration_enabled: form.registration_enabled,
-      email_verify_enabled: form.email_verify_enabled,
-      registration_email_suffix_whitelist:
-        registrationEmailSuffixWhitelistTags.value.map((suffix) =>
-          suffix.startsWith("*.") ? suffix : `@${suffix}`,
-        ),
-      registration_email_domain_quota_enabled:
-        form.registration_email_domain_quota_enabled,
-      promo_code_enabled: form.promo_code_enabled,
-      invitation_code_enabled: form.invitation_code_enabled,
-      password_reset_enabled: form.password_reset_enabled,
-      totp_enabled: form.totp_enabled,
-      passkey_enabled: form.passkey_enabled,
-      session_binding_enabled: form.session_binding_enabled,
-      step_up_enabled: form.step_up_enabled,
       // 清空数字框时 v-model.number 会得到空串，后端 int 字段解析空串会 400 拒绝整次保存；
       // 空/非法值回退默认 180（与后端 parseAuditLogRetentionDays("") 语义一致，0 仍表示永久保留）。
       audit_log_retention_days: Number.isFinite(form.audit_log_retention_days)
@@ -11466,7 +8003,6 @@ async function saveSettings() {
       login_agreement_mode: form.login_agreement_mode,
       login_agreement_updated_at: form.login_agreement_updated_at,
       login_agreement_documents: form.login_agreement_documents,
-      default_balance: form.default_balance,
       affiliate_rebate_rate: Math.min(
         100,
         Math.max(0, Number(form.affiliate_rebate_rate) || 0),
@@ -11475,10 +8011,6 @@ async function saveSettings() {
       affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
       affiliate_admin_recharge_enabled: form.affiliate_admin_recharge_enabled,
-      default_concurrency: form.default_concurrency,
-      default_subscriptions: normalizedDefaultSubscriptions,
-      force_email_on_third_party_signup: form.force_email_on_third_party_signup,
-      default_user_rpm_limit: form.default_user_rpm_limit,
       site_name: form.site_name,
       site_logo: form.site_logo,
       site_subtitle: form.site_subtitle,
@@ -11501,114 +8033,12 @@ async function saveSettings() {
       smtp_from_email: form.smtp_from_email,
       smtp_from_name: form.smtp_from_name,
       smtp_use_tls: form.smtp_use_tls,
-      turnstile_enabled: form.turnstile_enabled,
-      turnstile_site_key: form.turnstile_site_key,
-      turnstile_secret_key: form.turnstile_secret_key || undefined,
-      tencent_captcha_enabled: form.tencent_captcha_enabled,
-      tencent_captcha_app_id: form.tencent_captcha_app_id,
-      tencent_captcha_app_secret_key:
-        form.tencent_captcha_app_secret_key || undefined,
-      tencent_captcha_cloud_secret_id:
-        form.tencent_captcha_cloud_secret_id || undefined,
-      tencent_captcha_cloud_secret_key:
-        form.tencent_captcha_cloud_secret_key || undefined,
-      tencent_captcha_region: form.tencent_captcha_region,
-      aliyun_captcha_enabled: form.aliyun_captcha_enabled,
-      aliyun_captcha_access_key_id: form.aliyun_captcha_access_key_id,
-      aliyun_captcha_access_key_secret:
-        form.aliyun_captcha_access_key_secret || undefined,
-      aliyun_captcha_scene_id: form.aliyun_captcha_scene_id,
-      aliyun_captcha_prefix: form.aliyun_captcha_prefix,
-      aliyun_captcha_region: form.aliyun_captcha_region,
       api_key_acl_trust_forwarded_ip: form.api_key_acl_trust_forwarded_ip,
       forwarded_client_ip_headers: form.forwarded_client_ip_headers,
-      linuxdo_connect_enabled: form.linuxdo_connect_enabled,
-      linuxdo_connect_client_id: form.linuxdo_connect_client_id,
-      linuxdo_connect_client_secret:
-        form.linuxdo_connect_client_secret || undefined,
-      linuxdo_connect_redirect_url: form.linuxdo_connect_redirect_url,
-      dingtalk_connect_enabled: form.dingtalk_connect_enabled,
-      dingtalk_connect_client_id: form.dingtalk_connect_client_id,
-      dingtalk_connect_client_secret:
-        form.dingtalk_connect_client_secret || undefined,
-      dingtalk_connect_redirect_url: form.dingtalk_connect_redirect_url,
-      dingtalk_connect_corp_restriction_policy:
-        form.dingtalk_connect_corp_restriction_policy,
-      dingtalk_connect_internal_corp_id: form.dingtalk_connect_internal_corp_id,
-      dingtalk_connect_bypass_registration: form.dingtalk_connect_bypass_registration,
-      dingtalk_connect_sync_corp_email: form.dingtalk_connect_sync_corp_email,
-      dingtalk_connect_sync_display_name: form.dingtalk_connect_sync_display_name,
-      dingtalk_connect_sync_dept: form.dingtalk_connect_sync_dept,
-      dingtalk_connect_sync_corp_email_attr_key: form.dingtalk_connect_sync_corp_email_attr_key,
-      dingtalk_connect_sync_display_name_attr_key: form.dingtalk_connect_sync_display_name_attr_key,
-      dingtalk_connect_sync_dept_attr_key: form.dingtalk_connect_sync_dept_attr_key,
-      dingtalk_connect_sync_corp_email_attr_name: form.dingtalk_connect_sync_corp_email_attr_name,
-      dingtalk_connect_sync_display_name_attr_name: form.dingtalk_connect_sync_display_name_attr_name,
-      dingtalk_connect_sync_dept_attr_name: form.dingtalk_connect_sync_dept_attr_name,
-      wechat_connect_enabled: form.wechat_connect_enabled,
-      wechat_connect_app_id:
-        form.wechat_connect_open_app_id ||
-        form.wechat_connect_mp_app_id ||
-        form.wechat_connect_mobile_app_id ||
-        form.wechat_connect_app_id,
-      wechat_connect_app_secret: form.wechat_connect_app_secret || undefined,
-      wechat_connect_open_app_id: form.wechat_connect_open_app_id,
-      wechat_connect_open_app_secret:
-        form.wechat_connect_open_app_secret || undefined,
       wechat_connect_mp_app_id: form.wechat_connect_mp_app_id,
       wechat_connect_mp_app_secret:
         form.wechat_connect_mp_app_secret || undefined,
-      wechat_connect_mobile_app_id: form.wechat_connect_mobile_app_id,
-      wechat_connect_mobile_app_secret:
-        form.wechat_connect_mobile_app_secret || undefined,
-      wechat_connect_open_enabled: form.wechat_connect_open_enabled,
       wechat_connect_mp_enabled: form.wechat_connect_mp_enabled,
-      wechat_connect_mobile_enabled: form.wechat_connect_mobile_enabled,
-      wechat_connect_mode: wechatStoredMode,
-      wechat_connect_scopes:
-        defaultWeChatConnectScopesForMode(wechatStoredMode),
-      wechat_connect_redirect_url: form.wechat_connect_redirect_url,
-      wechat_connect_frontend_redirect_url:
-        form.wechat_connect_frontend_redirect_url,
-      oidc_connect_enabled: form.oidc_connect_enabled,
-      oidc_connect_provider_name: form.oidc_connect_provider_name,
-      oidc_connect_client_id: form.oidc_connect_client_id,
-      oidc_connect_client_secret: form.oidc_connect_client_secret || undefined,
-      oidc_connect_issuer_url: form.oidc_connect_issuer_url,
-      oidc_connect_discovery_url: form.oidc_connect_discovery_url,
-      oidc_connect_authorize_url: form.oidc_connect_authorize_url,
-      oidc_connect_token_url: form.oidc_connect_token_url,
-      oidc_connect_userinfo_url: form.oidc_connect_userinfo_url,
-      oidc_connect_jwks_url: form.oidc_connect_jwks_url,
-      oidc_connect_scopes: form.oidc_connect_scopes,
-      oidc_connect_redirect_url: form.oidc_connect_redirect_url,
-      oidc_connect_frontend_redirect_url:
-        form.oidc_connect_frontend_redirect_url,
-      oidc_connect_token_auth_method: form.oidc_connect_token_auth_method,
-      oidc_connect_use_pkce: form.oidc_connect_use_pkce,
-      oidc_connect_validate_id_token: form.oidc_connect_validate_id_token,
-      oidc_connect_allowed_signing_algs: form.oidc_connect_allowed_signing_algs,
-      oidc_connect_clock_skew_seconds: form.oidc_connect_clock_skew_seconds,
-      oidc_connect_require_email_verified:
-        form.oidc_connect_require_email_verified,
-      oidc_connect_userinfo_email_path: form.oidc_connect_userinfo_email_path,
-      oidc_connect_userinfo_id_path: form.oidc_connect_userinfo_id_path,
-      oidc_connect_userinfo_username_path:
-        form.oidc_connect_userinfo_username_path,
-      github_oauth_enabled: form.github_oauth_enabled,
-      github_oauth_client_id: form.github_oauth_client_id,
-      github_oauth_client_secret:
-        form.github_oauth_client_secret || undefined,
-      github_oauth_redirect_url: form.github_oauth_redirect_url,
-      github_oauth_frontend_redirect_url:
-        form.github_oauth_frontend_redirect_url,
-      google_oauth_enabled: form.google_oauth_enabled,
-      google_oauth_client_id: form.google_oauth_client_id,
-      google_oauth_client_secret:
-        form.google_oauth_client_secret || undefined,
-      google_oauth_redirect_url: form.google_oauth_redirect_url,
-      google_oauth_frontend_redirect_url:
-        form.google_oauth_frontend_redirect_url,
       enable_model_fallback: form.enable_model_fallback,
       fallback_model_anthropic: form.fallback_model_anthropic,
       fallback_model_openai: form.fallback_model_openai,
@@ -11806,11 +8236,8 @@ async function saveSettings() {
     payload.account_scheduling_thresholds = sanitizeAccountSchedulingThresholdsMap(
       form.account_scheduling_thresholds,
     );
-    appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
-    const updated = await settingsStepUp.run(() =>
-      adminAPI.settings.updateSettings(payload),
-    );
+    const updated = await adminAPI.settings.updateSettings(payload);
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
       if (value !== null && value !== undefined) {
@@ -11820,15 +8247,10 @@ async function saveSettings() {
     if (updated.openai_oauth_scheduling_rate_multiplier === null) {
       form.openai_oauth_scheduling_rate_multiplier = null;
     }
-    Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     form.default_platform_quotas = normalizePlatformQuotasMap(updated.default_platform_quotas);
     form.account_scheduling_thresholds = normalizeAccountSchedulingThresholdsMap(
       updated.account_scheduling_thresholds,
     );
-    registrationEmailSuffixWhitelistTags.value =
-      normalizeRegistrationEmailSuffixDomains(
-        updated.registration_email_suffix_whitelist,
-      );
     form.forwarded_client_ip_headers = normalizeForwardedClientIpHeaders(
       updated.forwarded_client_ip_headers,
     );
@@ -11838,39 +8260,9 @@ async function saveSettings() {
         ? updated.table_page_size_options
         : [10, 20, 50, 100],
     );
-    registrationEmailSuffixWhitelistDraft.value = "";
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
-    form.turnstile_secret_key = "";
-    form.aliyun_captcha_access_key_secret = "";
-    form.linuxdo_connect_client_secret = "";
-    form.dingtalk_connect_client_secret = "";
-    form.github_oauth_client_secret = "";
-    form.google_oauth_client_secret = "";
-    form.wechat_connect_app_secret = "";
-    form.wechat_connect_open_app_secret = "";
     form.wechat_connect_mp_app_secret = "";
-    form.wechat_connect_mobile_app_secret = "";
-    const updatedWechatCapabilities = resolveWeChatConnectModeCapabilities(
-      updated.wechat_connect_open_enabled,
-      updated.wechat_connect_mp_enabled,
-      updated.wechat_connect_mobile_enabled,
-      updated.wechat_connect_mode,
-    );
-    form.wechat_connect_open_enabled = updatedWechatCapabilities.openEnabled;
-    form.wechat_connect_mp_enabled = updatedWechatCapabilities.mpEnabled;
-    form.wechat_connect_mobile_enabled =
-      updatedWechatCapabilities.mobileEnabled;
-    form.wechat_connect_mode = deriveWeChatConnectStoredMode(
-      updatedWechatCapabilities.openEnabled,
-      updatedWechatCapabilities.mpEnabled,
-      updatedWechatCapabilities.mobileEnabled,
-      updated.wechat_connect_mode,
-    );
-    form.wechat_connect_scopes = defaultWeChatConnectScopesForMode(
-      form.wechat_connect_mode,
-    );
-    form.oidc_connect_client_secret = "";
     // Refresh OpenAI fast/flex policy from server response
     if (
       updated.openai_fast_policy_settings &&
@@ -11895,25 +8287,6 @@ async function saveSettings() {
       appStore.showSuccess(t("admin.settings.settingsSaved"));
     }
   } catch (error: unknown) {
-    // 用户取消 step-up 验证：静默返回，不弹错误
-    if (isStepUpCancelled(error)) {
-      return;
-    }
-    if (isStepUpBlocked(error)) {
-      appStore.showError(
-        stepUpBlockReason(error) === "STEP_UP_ADMIN_API_KEY_FORBIDDEN"
-          ? t("stepUp.adminApiKeyForbidden")
-          : t("stepUp.notEnabled"),
-      );
-      return;
-    }
-    // 开启 step-up 开关但本人未启用 2FA：给出可操作的专用提示
-    if (
-      (error as { reason?: string })?.reason === "STEP_UP_ENABLE_REQUIRES_TOTP"
-    ) {
-      appStore.showError(t("admin.settings.security.stepUpEnableRequiresTotp"));
-      return;
-    }
     appStore.showError(
       extractApiErrorMessage(error, t("admin.settings.failedToSave")),
     );
@@ -11978,71 +8351,6 @@ async function sendTestEmail() {
   } finally {
     sendingTestEmail.value = false;
   }
-}
-
-// Admin API Key 方法
-async function loadAdminApiKey() {
-  adminApiKeyLoading.value = true;
-  try {
-    const status = await adminAPI.settings.getAdminApiKey();
-    adminApiKeyExists.value = status.exists;
-    adminApiKeyMasked.value = status.masked_key;
-  } catch (_error: unknown) {
-    // Silent fail - admin API key status is non-critical
-  } finally {
-    adminApiKeyLoading.value = false;
-  }
-}
-
-async function createAdminApiKey() {
-  if (!adminApiKeyExists.value) return;
-  adminApiKeyOperating.value = true;
-  try {
-    const result = await settingsStepUp.run(() => adminAPI.settings.regenerateAdminApiKey());
-    newAdminApiKey.value = result.key;
-    adminApiKeyExists.value = true;
-    adminApiKeyMasked.value =
-      result.key.substring(0, 10) + "..." + result.key.slice(-4);
-    appStore.showSuccess(t("admin.settings.adminApiKey.keyGenerated"));
-  } catch (error: unknown) {
-    if (isStepUpCancelled(error)) return;
-    appStore.showError(extractApiErrorMessage(error, t("common.error")));
-  } finally {
-    adminApiKeyOperating.value = false;
-  }
-}
-
-async function regenerateAdminApiKey() {
-  if (!confirm(t("admin.settings.adminApiKey.regenerateConfirm"))) return;
-  await createAdminApiKey();
-}
-
-async function deleteAdminApiKey() {
-  if (!confirm(t("admin.settings.adminApiKey.deleteConfirm"))) return;
-  adminApiKeyOperating.value = true;
-  try {
-    await settingsStepUp.run(() => adminAPI.settings.deleteAdminApiKey());
-    adminApiKeyExists.value = false;
-    adminApiKeyMasked.value = "";
-    newAdminApiKey.value = "";
-    appStore.showSuccess(t("admin.settings.adminApiKey.keyDeleted"));
-  } catch (error: unknown) {
-    if (isStepUpCancelled(error)) return;
-    appStore.showError(extractApiErrorMessage(error, t("common.error")));
-  } finally {
-    adminApiKeyOperating.value = false;
-  }
-}
-
-function copyNewKey() {
-  navigator.clipboard
-    .writeText(newAdminApiKey.value)
-    .then(() => {
-      appStore.showSuccess(t("admin.settings.adminApiKey.keyCopied"));
-    })
-    .catch(() => {
-      appStore.showError(t("common.copyFailed"));
-    });
 }
 
 async function loadUpstreamBillingProbeSettings() {
@@ -12885,22 +9193,6 @@ async function handleDeleteProvider() {
   }
 }
 
-onMounted(() => {
-  loadSettings();
-  loadSubscriptionGroups();
-  loadAdminApiKey();
-  loadUpstreamBillingProbeSettings();
-  loadOllamaCloudUsageSettings();
-  loadOpenCodeGoUsageSettings();
-  loadOverloadCooldownSettings();
-  loadRateLimit429CooldownSettings();
-  loadPanelRateLimitSettings();
-  loadStreamTimeoutSettings();
-  loadRectifierSettings();
-  loadBetaPolicySettings();
-  loadProviders();
-});
-
 // =========================
 // Affiliate (邀请返利) 专属用户管理
 // =========================
@@ -13253,21 +9545,19 @@ watch(
     }
   },
 );
-
-// bypass_registration 与身份同步三开关仅在 internal_only 模式下生效。切换 policy 到其它值时，
-// 立即把相关字段重置为 false，避免保存请求里残留旧值。后端 admin handler 与
-// 配置加载层都有 coerce 兜底，这里是 UX 层的同步而非安全防线。
-watch(
-  () => form.dingtalk_connect_corp_restriction_policy,
-  (policy) => {
-    if (policy !== "internal_only") {
-      if (form.dingtalk_connect_bypass_registration) form.dingtalk_connect_bypass_registration = false;
-      if (form.dingtalk_connect_sync_corp_email) form.dingtalk_connect_sync_corp_email = false;
-      if (form.dingtalk_connect_sync_display_name) form.dingtalk_connect_sync_display_name = false;
-      if (form.dingtalk_connect_sync_dept) form.dingtalk_connect_sync_dept = false;
-    }
-  },
-);
+onMounted(() => {
+  loadSettings();
+  loadUpstreamBillingProbeSettings();
+  loadOllamaCloudUsageSettings();
+  loadOpenCodeGoUsageSettings();
+  loadOverloadCooldownSettings();
+  loadRateLimit429CooldownSettings();
+  loadPanelRateLimitSettings();
+  loadStreamTimeoutSettings();
+  loadRectifierSettings();
+  loadBetaPolicySettings();
+  loadProviders();
+});
 </script>
 
 <style scoped>

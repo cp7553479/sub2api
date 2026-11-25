@@ -73,8 +73,7 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 	cfg := &config.Config{RunMode: runMode}
 	rateRepo := &keyBillingRouteRateRepo{}
 	apiKeyService := service.NewAPIKeyService(
-		&keyBillingRouteAPIKeyRepo{apiKey: apiKey}, nil, nil, nil, rateRepo, nil, cfg,
-	)
+		&keyBillingRouteAPIKeyRepo{apiKey: apiKey}, nil, nil, nil, rateRepo, nil, cfg, platformTestRepository{})
 	gatewayService := service.NewGatewayService(
 		nil, nil, nil, nil, nil, nil, rateRepo, nil, cfg, nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,

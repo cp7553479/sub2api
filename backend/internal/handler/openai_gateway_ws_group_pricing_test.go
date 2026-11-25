@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -93,7 +94,7 @@ func (s *wsGroupPricingAPIKeyRepoStub) lookupCount() int {
 }
 
 func newWSGroupPricingAPIKeyService(repo *wsGroupPricingAPIKeyRepoStub) *service.APIKeyService {
-	return service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, &config.Config{})
+	return service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, &config.Config{}, platformTestRepository{})
 }
 
 func TestOpenAIResponsesWebSocket_GroupRateChangeAppliesToNextTurn(t *testing.T) {
@@ -218,10 +219,11 @@ func TestRefreshOpenAIWSTurnBillingAPIKey(t *testing.T) {
 	}
 
 	t.Run("same group adopts the latest group and nothing else", func(t *testing.T) {
-		got := refreshOpenAIWSTurnBillingAPIKey(context.Background(), wsTurnAPIKeyLookupFunc(func(ctx context.Context, key string) (*service.APIKey, error) {
+		got, err := refreshOpenAIWSTurnBillingAPIKey(context.Background(), wsTurnAPIKeyLookupFunc(func(ctx context.Context, key string) (*service.APIKey, error) {
 			require.Equal(t, "sk-conn", key)
 			return latestWith(nil), nil
 		}), conn)
+		require.NoError(t, err)
 		require.NotSame(t, conn, got)
 		require.InDelta(t, 0.3, got.Group.RateMultiplier, 1e-12)
 		require.Same(t, conn.User, got.User, "only the group snapshot is refreshed")
@@ -255,7 +257,9 @@ func TestRefreshOpenAIWSTurnBillingAPIKey(t *testing.T) {
 	}
 	for name, lookup := range keep {
 		t.Run(name+" keeps the connection snapshot", func(t *testing.T) {
-			require.Same(t, conn, refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, conn))
+			got, err := refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, conn)
+			require.NoError(t, err)
+			require.Same(t, conn, got)
 		})
 	}
 
@@ -267,14 +271,63 @@ func TestRefreshOpenAIWSTurnBillingAPIKey(t *testing.T) {
 		})
 		noKey := *conn
 		noKey.Key = ""
-		require.Same(t, &noKey, refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, &noKey))
+		got, err := refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, &noKey)
+		require.NoError(t, err)
+		require.Same(t, &noKey, got)
 		noGroup := *conn
 		noGroup.Group = nil
-		require.Same(t, &noGroup, refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, &noGroup))
-		require.Nil(t, refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, nil))
-		require.Same(t, conn, refreshOpenAIWSTurnBillingAPIKey(context.Background(), nil, conn))
+		got, err = refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, &noGroup)
+		require.NoError(t, err)
+		require.Same(t, &noGroup, got)
+		got, err = refreshOpenAIWSTurnBillingAPIKey(context.Background(), lookup, nil)
+		require.NoError(t, err)
+		require.Nil(t, got)
+		got, err = refreshOpenAIWSTurnBillingAPIKey(context.Background(), nil, conn)
+		require.NoError(t, err)
+		require.Same(t, conn, got)
 		require.False(t, called)
 	})
+
+	// 平台明确拒绝该 key 所属身份与“暂时取不到”不同：不得沿用建连快照，必须把
+	// 错误交给调用方结束连接，否则被停用或已注销的身份可以靠一条不关闭的长连接继续使用。
+	for name, rejected := range map[string]error{
+		"platform disabled":  service.ErrPlatformDisabled,
+		"platform identity":  service.ErrPlatformIdentity,
+		"platform session":   service.ErrPlatformSession,
+		"platform token":     service.ErrPlatformToken,
+		"wrapped (redacted)": fmt.Errorf("get api key: %w", service.ErrPlatformDisabled),
+	} {
+		t.Run(name+" is reported instead of kept", func(t *testing.T) {
+			got, err := refreshOpenAIWSTurnBillingAPIKey(context.Background(), wsTurnAPIKeyLookupFunc(func(ctx context.Context, key string) (*service.APIKey, error) {
+				return nil, rejected
+			}), conn)
+			require.ErrorIs(t, err, rejected)
+			require.Same(t, conn, got)
+		})
+	}
+}
+
+// begin 在平台拒绝后必须让调用方结束连接；其余失败仍沿用建连快照。
+func TestOpenAIWSTurnBillingAPIKeysBeginReportsPlatformRejection(t *testing.T) {
+	groupID := int64(77)
+	conn := &service.APIKey{
+		ID:      5,
+		Key:     "sk-conn",
+		GroupID: &groupID,
+		User:    &service.User{ID: 9, Balance: 123},
+		Group:   &service.Group{ID: 77, Platform: service.PlatformOpenAI, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: 3.0},
+	}
+	lookup := wsTurnAPIKeyLookupFunc(func(ctx context.Context, key string) (*service.APIKey, error) {
+		return nil, service.ErrPlatformDisabled
+	})
+	var keys openAIWSTurnBillingAPIKeys
+
+	ctx, err := keys.begin(context.Background(), lookup, 2, conn)
+	require.ErrorIs(t, err, service.ErrPlatformDisabled)
+
+	// 拒绝之后仍按建连快照记录本 turn：调用方拿到错误即结束连接，计费落点保持不变。
+	require.Same(t, conn, keys.forTurn(2, conn))
+	require.NotNil(t, ctx)
 }
 
 func TestOpenAIWSTurnBillingAPIKeysKeepPreviousTurnUntilItIsRecorded(t *testing.T) {

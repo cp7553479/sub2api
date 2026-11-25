@@ -389,7 +389,7 @@ func indexIsInvalid(ctx context.Context, db migrationConnection, indexName strin
 			FROM pg_class idx
 			JOIN pg_namespace ns ON ns.oid = idx.relnamespace
 			JOIN pg_index i ON i.indexrelid = idx.oid
-			WHERE ns.nspname = 'public'
+			WHERE ns.nspname = current_schema()
 			  AND idx.relname = $1
 			  AND NOT i.indisvalid
 		)
@@ -444,7 +444,7 @@ func tableExists(ctx context.Context, db migrationConnection, tableName string) 
 		SELECT EXISTS (
 			SELECT 1
 			FROM information_schema.tables
-			WHERE table_schema = 'public' AND table_name = $1
+			WHERE table_schema = current_schema() AND table_name = $1
 		)
 	`, tableName).Scan(&exists)
 	return exists, err

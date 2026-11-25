@@ -17,30 +17,18 @@ type AuditLogMiddleware gin.HandlerFunc
 
 // 审计相关 gin context 覆写键：handler / 认证中间件可通过这些键补充审计信息。
 const (
-	auditCtxKeyAction     = "audit_action"
-	auditCtxKeyActorID    = "audit_actor_id"
-	auditCtxKeyActorEmail = "audit_actor_email"
-	auditCtxKeySkip       = "audit_skip"
-	auditCtxKeyExtra      = "audit_extra"
+	auditCtxKeyAction = "audit_action"
+	auditCtxKeySkip   = "audit_skip"
+	auditCtxKeyExtra  = "audit_extra"
 	// ContextKeyAuthEmail 认证中间件写入的用户邮箱（审计用）。
 	ContextKeyAuthEmail = "auth_email"
-	// ContextKeySessionID 认证中间件写入的会话 ID（refresh token family）。
+	// ContextKeySessionID 认证中间件写入的会话 ID（Supabase session_id）。
 	ContextKeySessionID = "session_id"
 )
 
 // SetAuditAction 允许 handler / 中间件为当前请求指定审计动作名（覆盖自动推导）。
 func SetAuditAction(c *gin.Context, action string) {
 	c.Set(auditCtxKeyAction, action)
-}
-
-// SetAuditActor 允许 handler 在认证上下文缺失时（如登录接口）补充操作者身份。
-func SetAuditActor(c *gin.Context, userID int64, email string) {
-	if userID > 0 {
-		c.Set(auditCtxKeyActorID, userID)
-	}
-	if email != "" {
-		c.Set(auditCtxKeyActorEmail, email)
-	}
 }
 
 // SkipAudit 跳过当前请求的审计记录。
@@ -52,8 +40,6 @@ func SkipAudit(c *gin.Context) {
 // scalar, non-secret operation summaries. Request bodies and arbitrary maps
 // are never accepted through this channel.
 var auditExtraAllowedKeys = map[string]struct{}{
-	"admin_key_id": {}, "full_access": {}, "full_access_before": {},
-	"mcp_grant_id": {}, "mcp_tool": {},
 	"result": {}, "error_code": {}, "enabled": {}, "blocking_enabled": {},
 	"config_version": {}, "endpoint_count": {}, "scanner_count": {},
 	"all_groups": {}, "group_count": {}, "guard_endpoint_id": {},
@@ -115,7 +101,6 @@ var auditSensitiveReads = map[string]string{
 	"GET /api/v1/admin/proxies/data":              "admin.proxies.export",
 	"GET /api/v1/admin/redeem-codes/export":       "admin.redeem_codes.export",
 	"GET /api/v1/admin/backups/:id/download-url":  "admin.backups.download",
-	"GET /api/v1/admin/settings/admin-api-key":    "admin.admin_api_key.read",
 	"GET /api/v1/admin/users/:id/api-keys":        "admin.users.api_keys.read",
 	"GET /api/v1/admin/groups/:id/api-keys":       "admin.groups.api_keys.read",
 	"GET /api/v1/admin/backups/s3-config":         "admin.backups.s3_config.read",
@@ -124,20 +109,12 @@ var auditSensitiveReads = map[string]string{
 
 // auditActionOverrides 变更类请求的动作名精确映射（未命中时自动推导）。
 var auditActionOverrides = map[string]string{
-	"POST /api/v1/auth/login":                                 service.AuditActionLogin,
-	"POST /api/v1/auth/login/2fa":                             service.AuditActionLogin2FA,
-	"POST /api/v1/auth/passkey/login/finish":                  service.AuditActionLogin,
-	"POST /api/v1/auth/register":                              service.AuditActionRegister,
-	"POST /api/v1/auth/refresh":                               service.AuditActionTokenRefresh,
-	"POST /api/v1/user/totp/step-up":                          service.AuditActionStepUpVerify,
 	"POST /api/v1/admin/audit-logs/clear":                     service.AuditActionAuditLogClear,
 	"POST /api/v1/admin/accounts/data":                        "admin.accounts.import",
 	"POST /api/v1/admin/backups":                              "admin.backups.create",
 	"POST /api/v1/admin/backups/:id/restore":                  "admin.backups.restore",
 	"DELETE /api/v1/admin/backups/:id":                        "admin.backups.delete",
 	"PUT /api/v1/admin/backups/s3-config":                     "admin.backups.s3_config.update",
-	"POST /api/v1/admin/settings/admin-api-key/regenerate":    "admin.admin_api_key.regenerate",
-	"DELETE /api/v1/admin/settings/admin-api-key":             "admin.admin_api_key.delete",
 	"PUT /api/v1/admin/prompt-audit/config":                   "admin.prompt_audit.config.update",
 	"POST /api/v1/admin/prompt-audit/endpoints/probe":         "admin.prompt_audit.endpoint.probe",
 	"DELETE /api/v1/admin/prompt-audit/events/:id":            "admin.prompt_audit.event.delete",
@@ -149,8 +126,6 @@ var auditActionOverrides = map[string]string{
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。
 // 这类 body 的凭证内嵌在普通字符串值里，键级脱敏无法覆盖，整体不入库。
 var auditBodyOmittedRoutes = map[string]struct{}{
-	"POST /api/v1/auth/passkey/login/finish":                    {},
-	"POST /api/v1/user/passkeys/register/finish":                {},
 	"POST /api/v1/admin/accounts/import/codex-session":          {},
 	"PUT /api/v1/admin/accounts/:id/ollama-cloud-usage/session": {},
 	"PUT /api/v1/admin/prompt-audit/config":                     {},
@@ -162,9 +137,9 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 }
 
 // NewAuditLogMiddleware 创建审计中间件。
-// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取 + MCP OAuth 的全部读取。
+// 记录范围：变更类请求（POST/PUT/PATCH/DELETE）+ 白名单内的敏感 GET 读取。
 // 挂载位置：admin / user / admin-payment 组挂在各自认证中间件之后（只审计已认证请求，
-// 未过认证的 401/403 不入库）；auth 组（登录/注册/刷新）无前置认证，天然记录失败尝试。
+// 未过认证的 401/403 不入库）。
 func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddleware {
 	return AuditLogMiddleware(func(c *gin.Context) {
 		routeKey := c.Request.Method + " " + c.FullPath()
@@ -181,10 +156,6 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 			if v, ok := auditSensitiveReads[routeKey]; ok {
 				record = true
 				action = v
-			} else if c.GetString("auth_method") == service.AuditAuthMethodMCPOAuth {
-				// Machine credentials can read user data in bulk; every MCP tool
-				// call is attributable to its grant via audit extra fields.
-				record = true
 			}
 		}
 		if !record {
@@ -218,10 +189,6 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 		}
 
 		status := c.Writer.Status()
-		// token 刷新成功属于高频常规操作，只记录失败（潜在攻击信号）。
-		if routeKey == "POST /api/v1/auth/refresh" && status < 400 {
-			return
-		}
 
 		entry := &service.AuditLog{
 			CreatedAt:   time.Now().UTC(),
@@ -262,21 +229,14 @@ func NewAuditLogMiddleware(auditService *service.AuditLogService) AuditLogMiddle
 		if entry.AuthMethod == "" && entry.ActorUserID != nil {
 			entry.AuthMethod = service.AuditAuthMethodJWT
 		}
-		if v, ok := c.Get(auditCtxKeyActorID); ok {
-			if id, ok := v.(int64); ok && id > 0 {
-				entry.ActorUserID = &id
-			}
-		}
-		if v, ok := c.Get(auditCtxKeyActorEmail); ok {
-			if s, ok := v.(string); ok && s != "" {
-				entry.ActorEmail = s
-			}
-		}
 
 		// 请求头凭证掩码（仅保留首尾）。
 		entry.CredentialMasked = MaskedRequestCredential(c)
 
 		extra := map[string]any{}
+		if sessionID := c.GetString(ContextKeySessionID); sessionID != "" {
+			extra["session_id"] = sessionID
+		}
 		if value, ok := c.Get(auditCtxKeyExtra); ok {
 			if details, ok := value.(map[string]any); ok {
 				for key, item := range details {
@@ -313,9 +273,6 @@ func (b *restoredBody) Close() error { return b.closer.Close() }
 
 // MaskedRequestCredential 提取请求头中的凭证并做首尾掩码。
 func MaskedRequestCredential(c *gin.Context) string {
-	if apiKey := strings.TrimSpace(c.GetHeader("x-api-key")); apiKey != "" {
-		return "x-api-key " + service.MaskAuditCredential(apiKey)
-	}
 	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
 	if authHeader == "" {
 		return ""

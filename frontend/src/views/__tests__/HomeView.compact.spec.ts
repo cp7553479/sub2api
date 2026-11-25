@@ -127,7 +127,7 @@ describe('HomeView compact mode', () => {
 
     const wrapper = mountHome({ compact_home_enabled: true })
     expect(compactDestination(wrapper)).toBe('/admin/dashboard')
-    expect(authStore.checkAuth).toHaveBeenCalledOnce()
+    expect(authStore.checkAuth).not.toHaveBeenCalled()
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
   })
 

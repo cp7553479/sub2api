@@ -8,6 +8,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -17,7 +18,7 @@ const (
 	simpleModeTargetAdminConcurrency     = 30
 )
 
-func ensureSimpleModeAdminConcurrency(ctx context.Context, client *dbent.Client) error {
+func ensureSimpleModeAdminConcurrency(ctx context.Context, client *dbent.Client, cfg *config.Config) error {
 	if client == nil {
 		return fmt.Errorf("nil ent client")
 	}
@@ -30,9 +31,11 @@ func ensureSimpleModeAdminConcurrency(ctx context.Context, client *dbent.Client)
 		return nil
 	}
 
+	projection := newUserRepositoryWithSQL(client, nil, cfg.Supabase.BridgeSchema)
 	if _, err := client.User.Update().
 		Where(
-			dbuser.RoleEQ(service.RoleAdmin),
+			projection.platformFilter(dbuser.FieldRole, service.RoleAdmin),
+			projection.platformFilter(dbuser.FieldStatus, service.StatusActive),
 			dbuser.ConcurrencyEQ(simpleModeLegacyAdminConcurrency),
 		).
 		SetConcurrency(simpleModeTargetAdminConcurrency).

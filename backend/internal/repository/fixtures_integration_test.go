@@ -10,6 +10,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,9 +20,6 @@ func mustCreateUser(t *testing.T, client *dbent.Client, u *service.User) *servic
 
 	if u.Email == "" {
 		u.Email = "user-" + time.Now().Format(time.RFC3339Nano) + "@example.com"
-	}
-	if u.PasswordHash == "" {
-		u.PasswordHash = "test-password-hash"
 	}
 	if u.Role == "" {
 		u.Role = service.RoleUser
@@ -33,10 +31,10 @@ func mustCreateUser(t *testing.T, client *dbent.Client, u *service.User) *servic
 		u.Concurrency = 5
 	}
 
-	create := client.User.Create().
+	platformID := uuid.New()
+	create := client.User.Create().SetSupabaseUserID(platformID).
 		SetEmail(u.Email).
-		SetPasswordHash(u.PasswordHash).
-		SetRole(u.Role).
+		SetRole(service.RoleUser).
 		SetStatus(u.Status).
 		SetBalance(u.Balance).
 		SetConcurrency(u.Concurrency).
@@ -52,6 +50,11 @@ func mustCreateUser(t *testing.T, client *dbent.Client, u *service.User) *servic
 	created, err := create.Save(ctx)
 	require.NoError(t, err, "create user")
 
+	exec, ok := client.Driver().(sqlExecutor)
+	require.True(t, ok, "fixture client must expose its transaction SQL executor")
+	_, err = exec.ExecContext(ctx, `INSERT INTO sub2api_test_platform.platform_users (supabase_user_id,email,status,is_admin) VALUES ($1,$2,$3,$4)`, platformID, u.Email, u.Status, u.IsAdmin())
+	require.NoError(t, err)
+	u.SupabaseUserID = platformID.String()
 	u.ID = created.ID
 	u.CreatedAt = created.CreatedAt
 	u.UpdatedAt = created.UpdatedAt

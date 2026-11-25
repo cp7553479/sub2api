@@ -68,13 +68,6 @@ func (s *OpenAIQuotaService) referralAccount(ctx context.Context, id int64, send
 	if a == nil {
 		return nil, ErrAccountNotFound
 	}
-	action := scopedAccountOperation(ctx, "openai.referrals.read")
-	if sending {
-		action = "openai.referrals.invite"
-	}
-	if err := scopedAccountAccess(ctx, s.accountRepo, a, action, !sending); err != nil {
-		return nil, err
-	}
 	if a.Platform != PlatformOpenAI || a.Type != AccountTypeOAuth {
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_REFERRAL_INVALID_ACCOUNT", "referrals require an OpenAI OAuth account")
 	}
@@ -86,9 +79,7 @@ func (s *OpenAIQuotaService) referralAccount(ctx context.Context, id int64, send
 		if err != nil {
 			return nil, err
 		}
-		if err := scopedAccountAccess(ctx, s.accountRepo, resolved, action, false); err != nil {
-			return nil, err
-		}
+
 		return resolved, nil
 	}
 	return a, nil
@@ -122,7 +113,6 @@ func (s *OpenAIQuotaService) referralCall(ctx context.Context, id int64, program
 }
 
 func (s *OpenAIQuotaService) QueryReferralEligibility(ctx context.Context, id int64) (*OpenAIReferralEligibility, error) {
-	ctx = WithScopedAdminAccountOperation(ctx, scopedAccountOperation(ctx, "openai.referrals.read"))
 	account, err := s.referralAccount(ctx, id, false)
 	if err != nil {
 		return nil, err
@@ -145,9 +135,7 @@ func (s *OpenAIQuotaService) QueryReferralEligibility(ctx context.Context, id in
 }
 
 func (s *OpenAIQuotaService) CacheReferralSnapshot(ctx context.Context, id int64, eligibility *OpenAIReferralEligibility) error {
-	if err := scopedAccountIDAccess(ctx, s.accountRepo, id, scopedAccountOperation(ctx, "openai.referrals.read"), true); err != nil {
-		return err
-	}
+
 	return s.accountRepo.UpdateExtra(ctx, id, map[string]any{openAIReferralSnapshotKey: eligibility})
 }
 
@@ -163,7 +151,6 @@ type OpenAIReferralSendResult struct {
 }
 
 func (s *OpenAIQuotaService) SendReferralInvite(ctx context.Context, id int64, input OpenAIReferralSendRequest) (*OpenAIReferralSendResult, error) {
-	ctx = WithScopedAdminAccountOperation(ctx, "openai.referrals.invite")
 	email := strings.TrimSpace(input.Email)
 	address, err := mail.ParseAddress(email)
 	if err != nil || address.Address != email || len(email) > 254 || strings.ContainsAny(email, "\r\n") {

@@ -48,54 +48,6 @@ func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, b
 	return NewUpdateService(cache, githubClient, buildInfo.Version, buildInfo.BuildType)
 }
 
-// ProvideEmailQueueService creates EmailQueueService with default worker count
-func ProvideEmailQueueService(emailService *EmailService) *EmailQueueService {
-	return NewEmailQueueService(emailService, 3)
-}
-
-// ProvideAuthService wires the optional captcha providers into AuthService while
-// keeping NewAuthService's public constructor compatible with existing tests.
-func ProvideAuthService(
-	entClient *dbent.Client,
-	userRepo UserRepository,
-	redeemRepo RedeemCodeRepository,
-	refreshTokenCache RefreshTokenCache,
-	cfg *config.Config,
-	settingService *SettingService,
-	emailService *EmailService,
-	turnstileService *TurnstileService,
-	tencentCaptchaService *TencentCaptchaService,
-	aliyunCaptchaService *AliyunCaptchaService,
-	emailQueueService *EmailQueueService,
-	promoService *PromoService,
-	defaultSubAssigner DefaultSubscriptionAssigner,
-	affiliateService *AffiliateService,
-	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	mcpOAuthService *MCPOAuthService,
-) *AuthService {
-	svc := NewAuthService(
-		entClient,
-		userRepo,
-		redeemRepo,
-		refreshTokenCache,
-		cfg,
-		settingService,
-		emailService,
-		turnstileService,
-		emailQueueService,
-		promoService,
-		defaultSubAssigner,
-		affiliateService,
-		userPlatformQuotaRepo,
-	)
-	svc.SetTencentCaptchaService(tencentCaptchaService)
-	svc.SetAliyunCaptchaService(aliyunCaptchaService)
-	if mcpOAuthService != nil {
-		svc.SetMCPGrantRevoker(mcpOAuthService)
-	}
-	return svc
-}
-
 // ProvideOAuthRefreshAPI creates OAuthRefreshAPI with the default lock TTL.
 func ProvideOAuthRefreshAPI(accountRepo AccountRepository, tokenCache GeminiTokenCache) *OAuthRefreshAPI {
 	return NewOAuthRefreshAPI(accountRepo, tokenCache)
@@ -675,12 +627,12 @@ func ProvideScheduledTestRunnerService(
 // ProvideOpsScheduledReportService creates and starts OpsScheduledReportService.
 func ProvideOpsScheduledReportService(
 	opsService *OpsService,
-	userService *UserService,
+	platform PlatformIdentityRepository,
 	emailService *EmailService,
 	redisClient *redis.Client,
 	cfg *config.Config,
 ) *OpsScheduledReportService {
-	svc := NewOpsScheduledReportService(opsService, userService, emailService, redisClient, cfg)
+	svc := NewOpsScheduledReportService(opsService, platform, emailService, redisClient, cfg)
 	svc.Start()
 	return svc
 }
@@ -796,10 +748,8 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 }
 
 // ProvideSettingService wires SettingService with group reader and proxy repo.
-func ProvideSettingService(scopedKeys ScopedAdminKeyRepository, settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
+func ProvideSettingService(settingRepo SettingRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
-	svc.scopedAdminKeyRepo = scopedKeys
-	svc.SetDefaultSubscriptionGroupReader(groupRepo)
 	svc.SetProxyRepository(proxyRepo)
 	if err := svc.LoadForwardedClientIPSettings(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: load forwarded client IP settings failed: %v", err)
@@ -852,8 +802,9 @@ func ProvideAPIKeyService(
 	cfg *config.Config,
 	billingCacheService *BillingCacheService,
 	concurrencyService *ConcurrencyService,
+	platform PlatformIdentityRepository,
 ) *APIKeyService {
-	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
+	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg, platform)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
 	svc.SetConcurrencyService(concurrencyService)
 	return svc
@@ -862,10 +813,8 @@ func ProvideAPIKeyService(
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
-	ProvideAuthService,
-	NewPasskeyService,
+	NewSupabaseAuthService,
 	NewUserService,
-	NewMCPOAuthService,
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
 	ProvideAuthCacheInvalidationWorker,
@@ -937,12 +886,7 @@ var ProviderSet = wire.NewSet(
 	ProvideOpsScheduledReportService,
 	NewEmailService,
 	NewNotificationEmailService,
-	ProvideEmailQueueService,
-	NewTurnstileService,
-	NewTencentCaptchaService,
-	NewAliyunCaptchaService,
 	NewSubscriptionService,
-	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
 	NewUsageRecordWorkerPool,
@@ -965,7 +909,6 @@ var ProviderSet = wire.NewSet(
 	NewGrokQuotaFetcher,
 	NewUserAttributeService,
 	NewUsageCache,
-	NewTotpService,
 	NewErrorPassthroughService,
 	NewTLSFingerprintProfileService,
 	ProvidePluginManager,

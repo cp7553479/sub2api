@@ -55,46 +55,6 @@ func (s *UserRepoSuite) TestList_DefaultSortByNewestFirst() {
 	s.Require().Equal(first.ID, users[1].ID)
 }
 
-func (s *UserRepoSuite) TestCreateAndRead_PreservesSignupSourceAndActivityTimestamps() {
-	lastLoginAt := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Microsecond)
-	lastActiveAt := time.Now().Add(-30 * time.Minute).UTC().Truncate(time.Microsecond)
-
-	created := s.mustCreateUser(&service.User{
-		Email:        "identity-meta@example.com",
-		SignupSource: "linuxdo",
-		LastLoginAt:  &lastLoginAt,
-		LastActiveAt: &lastActiveAt,
-	})
-
-	got, err := s.repo.GetByID(s.ctx, created.ID)
-	s.Require().NoError(err)
-	s.Require().Equal("linuxdo", got.SignupSource)
-	s.Require().NotNil(got.LastLoginAt)
-	s.Require().NotNil(got.LastActiveAt)
-	s.Require().True(got.LastLoginAt.Equal(lastLoginAt))
-	s.Require().True(got.LastActiveAt.Equal(lastActiveAt))
-}
-
-func (s *UserRepoSuite) TestUpdate_PersistsSignupSourceAndActivityTimestamps() {
-	created := s.mustCreateUser(&service.User{Email: "identity-update@example.com"})
-	lastLoginAt := time.Now().Add(-90 * time.Minute).UTC().Truncate(time.Microsecond)
-	lastActiveAt := time.Now().Add(-15 * time.Minute).UTC().Truncate(time.Microsecond)
-
-	created.SignupSource = "oidc"
-	created.LastLoginAt = &lastLoginAt
-	created.LastActiveAt = &lastActiveAt
-
-	s.Require().NoError(s.repo.Update(s.ctx, created, service.UserUpdateFields{SignupSource: true, LastLoginAt: true, LastActiveAt: true}))
-
-	got, err := s.repo.GetByID(s.ctx, created.ID)
-	s.Require().NoError(err)
-	s.Require().Equal("oidc", got.SignupSource)
-	s.Require().NotNil(got.LastLoginAt)
-	s.Require().NotNil(got.LastActiveAt)
-	s.Require().True(got.LastLoginAt.Equal(lastLoginAt))
-	s.Require().True(got.LastActiveAt.Equal(lastActiveAt))
-}
-
 func (s *UserRepoSuite) TestListWithFilters_SortByLastActiveAtAsc() {
 	earlier := time.Now().Add(-3 * time.Hour).UTC().Truncate(time.Microsecond)
 	later := time.Now().Add(-45 * time.Minute).UTC().Truncate(time.Microsecond)

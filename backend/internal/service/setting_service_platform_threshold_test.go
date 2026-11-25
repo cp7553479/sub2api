@@ -133,9 +133,7 @@ func TestUpdateSettings_OmittedAccountSchedulingThresholdsDoesNotCacheDefaults(t
 		SettingKeyAccountSchedulingThresholds: `{"openai":85,"grok":88,"kiro":87}`,
 	})
 
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		FrontendURL: "https://example.test",
-	})
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{})
 	require.NoError(t, err)
 
 	got := svc.GetAccountSchedulingThresholds(context.Background())

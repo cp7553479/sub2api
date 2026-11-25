@@ -34,37 +34,37 @@ func TestUserRepository_RemoveGroupFromAllowedGroups_RemovesAllOccurrences(t *te
 		Save(ctx)
 	require.NoError(t, err)
 
-	repo := newUserRepositoryWithSQL(entClient, tx)
+	repo := newUserRepositoryWithSQL(entClient, tx, testPlatformSchema)
 
 	u1 := &service.User{
-		Email:         uniqueTestValue(t, "u1") + "@example.com",
-		PasswordHash:  "test-password-hash",
+		Email: uniqueTestValue(t, "u1") + "@example.com",
+
 		Role:          service.RoleUser,
 		Status:        service.StatusActive,
 		Concurrency:   5,
 		AllowedGroups: []int64{targetGroup.ID, otherGroup.ID},
 	}
-	require.NoError(t, repo.Create(ctx, u1))
+	require.NoError(t, seedBusinessUser(ctx, entClient, tx, u1))
 
 	u2 := &service.User{
-		Email:         uniqueTestValue(t, "u2") + "@example.com",
-		PasswordHash:  "test-password-hash",
+		Email: uniqueTestValue(t, "u2") + "@example.com",
+
 		Role:          service.RoleUser,
 		Status:        service.StatusActive,
 		Concurrency:   5,
 		AllowedGroups: []int64{targetGroup.ID},
 	}
-	require.NoError(t, repo.Create(ctx, u2))
+	require.NoError(t, seedBusinessUser(ctx, entClient, tx, u2))
 
 	u3 := &service.User{
-		Email:         uniqueTestValue(t, "u3") + "@example.com",
-		PasswordHash:  "test-password-hash",
+		Email: uniqueTestValue(t, "u3") + "@example.com",
+
 		Role:          service.RoleUser,
 		Status:        service.StatusActive,
 		Concurrency:   5,
 		AllowedGroups: []int64{otherGroup.ID},
 	}
-	require.NoError(t, repo.Create(ctx, u3))
+	require.NoError(t, seedBusinessUser(ctx, entClient, tx, u3))
 
 	affected, err := repo.RemoveGroupFromAllowedGroups(ctx, targetGroup.ID)
 	require.NoError(t, err)
@@ -96,19 +96,19 @@ func TestGroupRepository_DeleteCascade_PreservesApiKeyGroupID(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	userRepo := newUserRepositoryWithSQL(entClient, tx)
+	userRepo := newUserRepositoryWithSQL(entClient, tx, testPlatformSchema)
 	groupRepo := newGroupRepositoryWithSQL(entClient, tx)
 	apiKeyRepo := newAPIKeyRepositoryWithSQL(entClient, tx)
 
 	u := &service.User{
-		Email:         uniqueTestValue(t, "cascade-user") + "@example.com",
-		PasswordHash:  "test-password-hash",
+		Email: uniqueTestValue(t, "cascade-user") + "@example.com",
+
 		Role:          service.RoleUser,
 		Status:        service.StatusActive,
 		Concurrency:   5,
 		AllowedGroups: []int64{targetGroup.ID, otherGroup.ID},
 	}
-	require.NoError(t, userRepo.Create(ctx, u))
+	require.NoError(t, seedBusinessUser(ctx, entClient, tx, u))
 
 	key := &service.APIKey{
 		UserID:  u.ID,

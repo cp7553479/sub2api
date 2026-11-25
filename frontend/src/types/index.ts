@@ -34,56 +34,11 @@ export interface NotifyEmailEntry {
 
 // ==================== User & Auth Types ====================
 
-export type UserAuthProvider = 'email' | 'linuxdo' | 'oidc' | 'wechat' | 'github' | 'google' | 'dingtalk'
-
-export interface UserAuthBindingStatus {
-  bound?: boolean
-  bound_count?: number
-  provider?: UserAuthProvider | string
-  provider_key?: string | null
-  provider_subject?: string | null
-  issuer?: string | null
-  label?: string | null
-  provider_label?: string | null
-  display_name?: string | null
-  subject_hint?: string | null
-  verified_at?: string | null
-  bind_start_path?: string | null
-  can_bind?: boolean
-  can_unbind?: boolean
-  note_key?: string | null
-  note?: string | null
-  metadata?: Record<string, unknown>
-}
-
-export interface UserProfileSourceContext {
-  provider?: UserAuthProvider | string
-  source?: string | null
-  label?: string | null
-  provider_label?: string | null
-}
-
 export interface User {
   id: number
   username: string
   email: string
   avatar_url?: string | null
-  avatar_source?: string | UserProfileSourceContext | null
-  username_source?: string | UserProfileSourceContext | null
-  display_name_source?: string | UserProfileSourceContext | null
-  nickname_source?: string | UserProfileSourceContext | null
-  profile_sources?: {
-    avatar?: string | UserProfileSourceContext | null
-    username?: string | UserProfileSourceContext | null
-    display_name?: string | UserProfileSourceContext | null
-    nickname?: string | UserProfileSourceContext | null
-  }
-  auth_bindings?: Partial<Record<UserAuthProvider, boolean | UserAuthBindingStatus>>
-  identity_bindings?: Partial<Record<UserAuthProvider, boolean | UserAuthBindingStatus>>
-  email_bound?: boolean
-  linuxdo_bound?: boolean
-  oidc_bound?: boolean
-  wechat_bound?: boolean
   role: 'admin' | 'user' // User role for authorization
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
@@ -117,32 +72,11 @@ export interface AdminUser extends User {
 export interface LoginRequest {
   email: string
   password: string
-  turnstile_token?: string
-  tencent_captcha_ticket?: string
-  tencent_captcha_randstr?: string
-}
-
-export interface TencentCaptchaRequestProof {
-  tencent_captcha_ticket: string
-  tencent_captcha_randstr: string
-}
-
-// 动作触发式验证码（OAuth 启动、passkey 等入口）的请求凭据：
-// 腾讯填 tencent_captcha_*，阿里云的 captchaVerifyParam 复用 turnstile_token 字段
-export interface ActionCaptchaRequestProof extends Partial<TencentCaptchaRequestProof> {
-  turnstile_token?: string
 }
 
 export interface RegisterRequest {
   email: string
   password: string
-  verify_code?: string
-  turnstile_token?: string
-  tencent_captcha_ticket?: string
-  tencent_captcha_randstr?: string
-  promo_code?: string
-  invitation_code?: string
-  aff_code?: string
 }
 
 export interface AffiliateInvitee {
@@ -171,20 +105,6 @@ export interface AffiliateTransferResponse {
   balance: number
 }
 
-export interface SendVerifyCodeRequest {
-  email: string
-  turnstile_token?: string
-  tencent_captcha_ticket?: string
-  tencent_captcha_randstr?: string
-  pending_auth_token?: string
-  pending_oauth_token?: string
-}
-
-export interface SendVerifyCodeResponse {
-  message: string
-  countdown: number
-}
-
 export interface CustomMenuItem {
   id: string
   label: string
@@ -209,29 +129,11 @@ export interface LoginAgreementDocument {
 }
 
 export interface PublicSettings {
-  registration_enabled: boolean
-  email_verify_enabled: boolean
-  force_email_on_third_party_signup: boolean
-  registration_email_suffix_whitelist: string[]
-  registration_email_domain_quota_enabled?: boolean
-  promo_code_enabled: boolean
-  password_reset_enabled: boolean
-  invitation_code_enabled: boolean
   login_agreement_enabled?: boolean
   login_agreement_mode?: 'modal' | 'checkbox' | string
   login_agreement_updated_at?: string
   login_agreement_revision?: string
   login_agreement_documents?: LoginAgreementDocument[]
-  turnstile_enabled: boolean
-  tencent_captcha_enabled?: boolean
-  tencent_captcha_app_id?: string
-  tencent_captcha_region?: string
-  passkey_enabled?: boolean
-  turnstile_site_key: string
-  aliyun_captcha_enabled?: boolean
-  aliyun_captcha_scene_id?: string
-  aliyun_captcha_prefix?: string
-  aliyun_captcha_region?: string
   site_name: string
   site_logo: string
   site_subtitle: string
@@ -247,16 +149,6 @@ export interface PublicSettings {
   table_page_size_options: number[]
   custom_menu_items: CustomMenuItem[]
   custom_endpoints: CustomEndpoint[]
-  linuxdo_oauth_enabled: boolean
-  dingtalk_oauth_enabled?: boolean
-  wechat_oauth_enabled: boolean
-  wechat_oauth_open_enabled?: boolean
-  wechat_oauth_mp_enabled?: boolean
-  wechat_oauth_mobile_enabled?: boolean
-  oidc_oauth_enabled: boolean
-  oidc_oauth_provider_name: string
-  github_oauth_enabled: boolean
-  google_oauth_enabled: boolean
   backend_mode_enabled: boolean
   version: string
   // 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用；
@@ -287,14 +179,12 @@ export interface PublicSettings {
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
-  /** True when the deployment configures MCP_PUBLIC_URL; MCP is disabled otherwise. */
-  mcp_enabled?: boolean
 }
 
 export interface AuthResponse {
   access_token: string
-  refresh_token?: string  // New: Refresh Token for token renewal
-  expires_in?: number     // New: Access Token expiry time in seconds
+  refresh_token: string
+  expires_in: number
   token_type: string
   user: User & { run_mode?: 'standard' | 'simple' }
 }
@@ -2156,15 +2046,11 @@ export interface ApiKeyUsageTrendPoint {
 // ==================== Admin User Management ====================
 
 export interface UpdateUserRequest {
-  email?: string
-  password?: string
   username?: string
   notes?: string
-  role?: 'admin' | 'user'
   balance?: number
   concurrency?: number
   rpm_limit?: number
-  status?: 'active' | 'disabled'
   allowed_groups?: number[] | null
   restrict_public_groups?: boolean
   // 用户专属分组倍率配置 (group_id -> rate_multiplier | null)
@@ -2172,10 +2058,6 @@ export interface UpdateUserRequest {
   group_rates?: Record<number, number | null>
 }
 
-export interface ChangePasswordRequest {
-  old_password: string
-  new_password: string
-}
 
 // ==================== User Subscription Types ====================
 
@@ -2468,55 +2350,6 @@ export interface UpdatePromoCodeRequest {
   status?: 'active' | 'disabled'
   expires_at?: number | null
   notes?: string
-}
-
-// ==================== TOTP (2FA) Types ====================
-
-export interface TotpStatus {
-  enabled: boolean
-  enabled_at: number | null  // Unix timestamp in seconds
-  feature_enabled: boolean
-}
-
-export interface TotpSetupRequest {
-  email_code?: string
-  password?: string
-}
-
-export interface TotpSetupResponse {
-  secret: string
-  qr_code_url: string
-  setup_token: string
-  countdown: number
-}
-
-export interface TotpEnableRequest {
-  totp_code: string
-  setup_token: string
-}
-
-export interface TotpEnableResponse {
-  success: boolean
-}
-
-export interface TotpDisableRequest {
-  email_code?: string
-  password?: string
-}
-
-export interface TotpVerificationMethod {
-  method: 'email' | 'password'
-}
-
-export interface TotpLoginResponse {
-  requires_2fa: boolean
-  temp_token?: string
-  user_email_masked?: string
-}
-
-export interface TotpLogin2FARequest {
-  temp_token: string
-  totp_code: string
 }
 
 // ==================== Scheduled Test Types ====================

@@ -252,22 +252,6 @@
               {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
             </button>
 
-            <button
-              v-if="selectedCount > 0"
-              class="btn btn-danger flex-1 md:flex-initial"
-              data-test="bulk-delete-users"
-              :disabled="bulkDeleting"
-              @click="bulkDeleteIds = [...selectedIds]"
-            >
-              <Icon name="trash" size="md" class="mr-2" />
-              {{ t('admin.users.bulkDelete.action', { count: selectedCount }) }}
-            </button>
-
-            <!-- Create User Button (full width on mobile, auto width on desktop) -->
-            <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.users.createUser') }}
-            </button>
           </div>
         </div>
       </template>
@@ -621,21 +605,6 @@
                 <span class="text-xs">{{ t('common.edit') }}</span>
               </button>
 
-              <!-- Toggle Status Button (not for admin) -->
-              <button
-                v-if="row.role !== 'admin'"
-                @click="handleToggleStatus(row)"
-                :class="[
-                  'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors',
-                  row.status === 'active'
-                    ? 'hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/20 dark:hover:text-orange-400'
-                    : 'hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400'
-                ]"
-              >
-                <Icon v-if="row.status === 'active'" name="ban" size="sm" />
-                <Icon v-else name="checkCircle" size="sm" />
-                <span class="text-xs">{{ row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable') }}</span>
-              </button>
 
               <!-- More Actions Menu Trigger -->
               <button
@@ -652,9 +621,7 @@
           <template #empty>
             <EmptyState
               :title="t('admin.users.noUsersYet')"
-              :description="t('admin.users.createFirstUser')"
-              :action-text="t('admin.users.createUser')"
-              @action="showCreateModal = true"
+              :description="t('admin.users.platformAccountHint')"
             />
           </template>
         </DataTable>
@@ -743,32 +710,12 @@
 
               <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
-              <!-- Delete (not for admin) -->
-              <button
-                v-if="user.role !== 'admin'"
-                @click="handleDelete(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                <Icon name="trash" size="sm" :stroke-width="2" />
-                {{ t('common.delete') }}
-              </button>
             </template>
           </template>
         </div>
       </div>
     </Teleport>
 
-    <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
-    <ConfirmDialog
-      :show="bulkDeleteIds.length > 0"
-      :title="t('admin.users.bulkDelete.title')"
-      :message="t('admin.users.bulkDelete.confirm', { count: bulkDeleteIds.length })"
-      :confirm-text="t('common.delete')"
-      danger
-      @confirm="confirmBulkDelete"
-      @cancel="bulkDeleteIds = []"
-    />
-    <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
     <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
     <BulkEditUserModal
       :show="showBulkEditModal"
@@ -811,7 +758,6 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import Select from '@/components/common/Select.vue'
@@ -821,7 +767,6 @@ import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
 import PlatformUsageBreakdown from '@/components/user/PlatformUsageBreakdown.vue'
 import PlatformCostCell from '@/components/user/PlatformCostCell.vue'
 import UserPlatformQuotaCell from '@/components/user/UserPlatformQuotaCell.vue'
-import UserCreateModal from '@/components/admin/user/UserCreateModal.vue'
 import UserEditModal from '@/components/admin/user/UserEditModal.vue'
 import BulkEditUserModal from '@/components/admin/user/BulkEditUserModal.vue'
 import UserPlatformQuotaModal from '@/components/admin/user/UserPlatformQuotaModal.vue'
@@ -1315,8 +1260,7 @@ const {
   selectedIds,
   selectedCount,
   setSelectedIds,
-  clear: clearSelection,
-  removeMany: removeSelectedIds
+  clear: clearSelection
 } = useTableSelection<AdminUser>({
   rows: sortedUsers,
   getId: (user) => user.id
@@ -1339,17 +1283,12 @@ const pagination = reactive({
   pages: 0
 })
 
-const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showBulkEditModal = ref(false)
-const showDeleteDialog = ref(false)
-const bulkDeleteIds = ref<number[]>([])
-const bulkDeleting = ref(false)
 const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
 const showPlatformQuotaModal = ref(false)
 const editingUser = ref<AdminUser | null>(null)
-const deletingUser = ref<AdminUser | null>(null)
 const viewingUser = ref<AdminUser | null>(null)
 const platformQuotaUser = ref<AdminUser | null>(null)
 
@@ -1742,30 +1681,6 @@ const closeEditModal = () => {
   editingUser.value = null
 }
 
-const handleToggleStatus = async (user: AdminUser) => {
-  const newStatus = user.status === 'active' ? 'disabled' : 'active'
-  try {
-    const updated = await adminAPI.users.toggleStatus(user.id, newStatus)
-    appStore.showSuccess(
-      newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
-    )
-    if (loading.value) {
-      // 与本次更新并发的列表请求可能读到更新前的状态，重新拉取保证一致。
-      loadUsers()
-      return
-    }
-    // 更新接口的响应不含 current_concurrency、subscriptions 等列表专属字段，只回写状态相关字段。
-    const row = users.value.find((u) => u.id === user.id)
-    if (row) {
-      row.status = updated.status
-      row.updated_at = updated.updated_at
-    }
-  } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
-    console.error('Error toggling user status:', error)
-  }
-}
-
 const handleViewApiKeys = (user: AdminUser) => {
   viewingUser.value = user
   showApiKeysModal.value = true
@@ -1797,49 +1712,6 @@ const closeGroupReplaceModal = () => {
   showGroupReplaceModal.value = false
   groupReplaceUser.value = null
   groupReplaceOldGroup.value = null
-}
-
-const handleDelete = (user: AdminUser) => {
-  deletingUser.value = user
-  showDeleteDialog.value = true
-}
-
-const confirmDelete = async () => {
-  if (!deletingUser.value) return
-  try {
-    await adminAPI.users.delete(deletingUser.value.id)
-    appStore.showSuccess(t('common.success'))
-    showDeleteDialog.value = false
-    deletingUser.value = null
-    loadUsers()
-  } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.users.failedToDelete'))
-    console.error('Error deleting user:', error)
-  }
-}
-
-const confirmBulkDelete = async () => {
-  const ids = bulkDeleteIds.value
-  bulkDeleteIds.value = []
-  bulkDeleting.value = true
-  const deletedIds: number[] = []
-  for (const id of ids) {
-    try {
-      await adminAPI.users.delete(id)
-      deletedIds.push(id)
-    } catch (error) {
-      console.error('Error deleting user:', error)
-    }
-  }
-  removeSelectedIds(deletedIds)
-  if (deletedIds.length > 0) {
-    appStore.showSuccess(t('admin.users.bulkDelete.success', { count: deletedIds.length }))
-    pagination.page = 1
-  }
-  const failed = ids.length - deletedIds.length
-  if (failed > 0) appStore.showError(t('admin.users.bulkDelete.failed', { count: failed }))
-  await loadUsers()
-  bulkDeleting.value = false
 }
 
 const handleDeposit = (user: AdminUser) => {

@@ -16,16 +16,12 @@ type AdminService interface {
 	ListUsers(ctx context.Context, page, pageSize int, filters UserListFilters, sortBy, sortOrder string) ([]User, int64, error)
 	GetUser(ctx context.Context, id int64) (*User, error)
 	GetUserIncludeDeleted(ctx context.Context, id int64) (*User, error)
-	CreateUser(ctx context.Context, input *CreateUserInput) (*User, error)
 	UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error)
-	DeleteUser(ctx context.Context, id int64) error
 	UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*User, error)
 	BatchUpdateConcurrency(ctx context.Context, userIDs []int64, value int, mode string) (int, error)
 	BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error)
 	// FindActiveUsersByBlacklistedEmails 按收件箱身份查找命中给定邮箱的未禁用普通用户。
-	FindActiveUsersByBlacklistedEmails(ctx context.Context, emails []string) ([]User, error)
 	// BatchDisableUsers 批量禁用普通用户，返回实际禁用的人数。
-	BatchDisableUsers(ctx context.Context, userIDs []int64) (int, error)
 	GetUserAPIKeys(ctx context.Context, userID int64, page, pageSize int, sortBy, sortOrder string) ([]APIKey, int64, error)
 	GetUserUsageStats(ctx context.Context, userID int64, period string) (any, error)
 	GetUserRPMStatus(ctx context.Context, userID int64) (*UserRPMStatus, error)
@@ -33,7 +29,6 @@ type AdminService interface {
 	// codeType is optional - pass empty string to return all types.
 	// Also returns totalRecharged (sum of all positive balance top-ups).
 	GetUserBalanceHistory(ctx context.Context, userID int64, page, pageSize int, codeType string) ([]RedeemCode, int64, float64, error)
-	BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error)
 
 	// Group management
 	ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error)
@@ -162,32 +157,12 @@ func ValidateSimpleModeGroupOperation(cfg *config.Config, operation AdminGroupOp
 	return nil
 }
 
-// CreateUserInput represents input for creating a new user via admin operations.
-type CreateUserInput struct {
-	Email                string
-	Password             string
-	Username             string
-	Notes                string
-	Role                 string // 空字符串表示使用默认角色(user);合法值 admin/user
-	Balance              *float64
-	Concurrency          int
-	RPMLimit             int
-	AllowedGroups        []int64
-	RestrictPublicGroups bool
-	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
-	ActorAdminID int64
-}
-
 type UpdateUserInput struct {
-	Email         string
-	Password      string
 	Username      *string
 	Notes         *string
-	Role          string   // 空字符串表示"未提供"(不修改);合法值 admin/user
 	Balance       *float64 // 使用指针区分"未提供"和"设置为0"
 	Concurrency   *int     // 使用指针区分"未提供"和"设置为0"
 	RPMLimit      *int     // 使用指针区分"未提供"和"设置为0"
-	Status        string
 	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
 	// RestrictPublicGroups 指针区分"未提供"和"显式开关"。
 	RestrictPublicGroups *bool
@@ -196,44 +171,6 @@ type UpdateUserInput struct {
 	GroupRates map[int64]*float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
-}
-
-type AdminBindAuthIdentityInput struct {
-	ProviderType    string
-	ProviderKey     string
-	ProviderSubject string
-	Issuer          *string
-	Metadata        map[string]any
-	Channel         *AdminBindAuthIdentityChannelInput
-}
-
-type AdminBindAuthIdentityChannelInput struct {
-	Channel        string
-	ChannelAppID   string
-	ChannelSubject string
-	Metadata       map[string]any
-}
-
-type AdminBoundAuthIdentity struct {
-	UserID          int64                          `json:"user_id"`
-	ProviderType    string                         `json:"provider_type"`
-	ProviderKey     string                         `json:"provider_key"`
-	ProviderSubject string                         `json:"provider_subject"`
-	VerifiedAt      *time.Time                     `json:"verified_at,omitempty"`
-	Issuer          *string                        `json:"issuer,omitempty"`
-	Metadata        map[string]any                 `json:"metadata"`
-	CreatedAt       time.Time                      `json:"created_at"`
-	UpdatedAt       time.Time                      `json:"updated_at"`
-	Channel         *AdminBoundAuthIdentityChannel `json:"channel,omitempty"`
-}
-
-type AdminBoundAuthIdentityChannel struct {
-	Channel        string         `json:"channel"`
-	ChannelAppID   string         `json:"channel_app_id"`
-	ChannelSubject string         `json:"channel_subject"`
-	Metadata       map[string]any `json:"metadata"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
 type CreateGroupInput struct {
@@ -712,7 +649,6 @@ type adminServiceImpl struct {
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	entClient            *dbent.Client // 用于开启数据库事务
 	settingService       *SettingService
-	defaultSubAssigner   DefaultSubscriptionAssigner
 	userSubRepo          UserSubscriptionRepository
 	privacyClientFactory PrivacyClientFactory
 	runtimeBlocker       AccountRuntimeBlocker
@@ -754,7 +690,6 @@ func NewAdminService(
 	authCacheInvalidator APIKeyAuthCacheInvalidator,
 	entClient *dbent.Client,
 	settingService *SettingService,
-	defaultSubAssigner DefaultSubscriptionAssigner,
 	userSubRepo UserSubscriptionRepository,
 	privacyClientFactory PrivacyClientFactory,
 	runtimeBlocker AccountRuntimeBlocker,
@@ -783,7 +718,6 @@ func NewAdminService(
 		authCacheInvalidator: authCacheInvalidator,
 		entClient:            entClient,
 		settingService:       settingService,
-		defaultSubAssigner:   defaultSubAssigner,
 		userSubRepo:          userSubRepo,
 		privacyClientFactory: privacyClientFactory,
 		runtimeBlocker:       runtimeBlocker,

@@ -102,6 +102,9 @@ func isTransientDatabaseInitializationError(err error) bool {
 //   - *sql.DB: 底层的 SQL 数据库连接，可用于直接执行原生 SQL
 //   - error: 初始化过程中的错误
 func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
+	if err := cfg.Database.ValidateSchema(); err != nil {
+		return nil, nil, err
+	}
 	// 优先初始化时区设置，确保所有时间操作使用统一的时区。
 	// 这对于跨时区部署和日志时间戳的一致性至关重要。
 	if err := timezone.Init(cfg.Timezone); err != nil {
@@ -145,16 +148,10 @@ func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
 	// 创建 Ent 客户端，绑定到已配置的数据库驱动。
 	client := ent.NewClient(ent.Driver(drv))
 
-	// 启动阶段：从配置或数据库中确保系统密钥可用。
-	if err := ensureBootstrapSecrets(migrationCtx, client, cfg); err != nil {
-		_ = client.Close()
-		return nil, nil, err
-	}
-
-	// 在密钥补齐后执行完整配置校验，避免空 jwt.secret 导致服务运行时失败。
+	// 身份密钥由 Supabase 持有，不在业务库生成或保存凭据。
 	if err := cfg.Validate(); err != nil {
 		_ = client.Close()
-		return nil, nil, fmt.Errorf("validate config after secret bootstrap: %w", err)
+		return nil, nil, fmt.Errorf("validate config: %w", err)
 	}
 
 	seedCtx, seedCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -167,6 +164,22 @@ func InitEnt(cfg *config.Config) (*ent.Client, *sql.DB, error) {
 	return client, drv.DB(), nil
 }
 
+// MigrateDatabase applies business migrations without starting application services.
+// Platform cleanup hooks are installed by the database owner after this stage.
+func MigrateDatabase(ctx context.Context, cfg *config.Config) error {
+	if err := cfg.Database.ValidateSchema(); err != nil {
+		return err
+	}
+	db, err := sql.Open("postgres", cfg.Database.DSNWithTimezone(cfg.Timezone))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return initializeDatabaseWithRetry(ctx, func(ctx context.Context) error {
+		return ApplyMigrations(ctx, db)
+	})
+}
+
 // ensureSimpleModeStartup keeps admin concurrency setup independent of group seeding.
 func ensureSimpleModeStartup(ctx context.Context, client *ent.Client, cfg *config.Config) error {
 	if cfg.RunMode != config.RunModeSimple {
@@ -177,5 +190,5 @@ func ensureSimpleModeStartup(ctx context.Context, client *ent.Client, cfg *confi
 			return err
 		}
 	}
-	return ensureSimpleModeAdminConcurrency(ctx, client)
+	return ensureSimpleModeAdminConcurrency(ctx, client, cfg)
 }

@@ -47,7 +47,7 @@ func newOpenAIImagesSizeRoutingTestHandler(t *testing.T, accounts []service.Acco
 		gatewayService,
 		service.NewConcurrencyService(nil),
 		billingService,
-		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
+		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg, platformTestRepository{}),
 		nil, nil, nil, nil,
 		cfg,
 	)

@@ -45,7 +45,7 @@ func main() {
 		log.Fatal("--batch-size must be between 1 and 5000")
 	}
 
-	cfg, err := config.LoadForBootstrap()
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}

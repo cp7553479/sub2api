@@ -36,6 +36,7 @@ const (
 
 var (
 	integrationDB        *sql.DB
+	integrationDSN       string
 	integrationEntClient *dbent.Client
 	integrationRedis     *redisclient.Client
 
@@ -77,7 +78,7 @@ func TestMain(m *testing.M) {
 
 	redisContainer, err := tcredis.Run(
 		ctx,
-		redisImageTag,
+		selectDockerImage(ctx, redisImageTag),
 	)
 	if err != nil {
 		log.Printf("failed to start redis container: %v", err)
@@ -85,19 +86,30 @@ func TestMain(m *testing.M) {
 	}
 	defer func() { _ = redisContainer.Terminate(ctx) }()
 
-	dsn, err := pgContainer.ConnectionString(ctx, "sslmode=disable", "TimeZone=UTC")
+	dsn, err := pgContainer.ConnectionString(ctx, "sslmode=disable", "TimeZone=UTC", "search_path=public,extensions")
 	if err != nil {
 		log.Printf("failed to get postgres dsn: %v", err)
 		os.Exit(1)
 	}
+	integrationDSN = dsn
 
 	integrationDB, err = openSQLWithRetry(ctx, dsn, 30*time.Second)
 	if err != nil {
 		log.Printf("failed to open sql db: %v", err)
 		os.Exit(1)
 	}
+	if _, err := integrationDB.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS extensions; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions"); err != nil {
+		log.Printf("failed to install owner-managed pg_trgm extension: %v", err)
+		os.Exit(1)
+	}
 	if err := ApplyMigrations(ctx, integrationDB); err != nil {
 		log.Printf("failed to apply db migrations: %v", err)
+		os.Exit(1)
+	}
+
+	if _, err := integrationDB.ExecContext(ctx, `CREATE SCHEMA sub2api_test_platform;
+CREATE TABLE sub2api_test_platform.platform_users (supabase_user_id uuid PRIMARY KEY, email text NOT NULL, status text NOT NULL, is_admin boolean NOT NULL)`); err != nil {
+		log.Printf("failed to create platform authorization fixtures: %v", err)
 		os.Exit(1)
 	}
 
@@ -150,9 +162,12 @@ func dockerIsAvailable(ctx context.Context) bool {
 //
 //	SUB2API_TEST_POSTGRES_IMAGE=postgres:15-alpine go test -tags integration ./internal/repository/
 func selectDockerImage(ctx context.Context, preferred string) string {
-	if override := strings.TrimSpace(os.Getenv("SUB2API_TEST_POSTGRES_IMAGE")); override != "" &&
-		strings.HasPrefix(preferred, "postgres:") {
-		return override
+	for image, variable := range map[string]string{"postgres:": "SUB2API_TEST_POSTGRES_IMAGE", "redis:": "SUB2API_TEST_REDIS_IMAGE"} {
+		if strings.HasPrefix(preferred, image) {
+			if override := strings.TrimSpace(os.Getenv(variable)); override != "" {
+				return override
+			}
+		}
 	}
 	if dockerImageExists(ctx, preferred) {
 		return preferred

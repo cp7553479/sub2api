@@ -2,16 +2,12 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math"
-	"net/netip"
 	"net/textproto"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -72,22 +68,14 @@ type Config struct {
 	Server                  ServerConfig                  `mapstructure:"server"`
 	Log                     LogConfig                     `mapstructure:"log"`
 	CORS                    CORSConfig                    `mapstructure:"cors"`
-	MCP                     MCPConfig                     `mapstructure:"mcp"`
 	Security                SecurityConfig                `mapstructure:"security"`
 	Billing                 BillingConfig                 `mapstructure:"billing"`
-	Turnstile               TurnstileConfig               `mapstructure:"turnstile"`
 	Database                DatabaseConfig                `mapstructure:"database"`
+	Supabase                SupabaseConfig                `mapstructure:"supabase"`
 	Redis                   RedisConfig                   `mapstructure:"redis"`
 	Ops                     OpsConfig                     `mapstructure:"ops"`
-	JWT                     JWTConfig                     `mapstructure:"jwt"`
-	Totp                    TotpConfig                    `mapstructure:"totp"`
-	WebAuthn                WebAuthnConfig                `mapstructure:"webauthn"`
-	LinuxDo                 LinuxDoConnectConfig          `mapstructure:"linuxdo_connect"`
+	Secrets                 SecretsConfig                 `mapstructure:"secrets"`
 	WeChat                  WeChatConnectConfig           `mapstructure:"wechat_connect"`
-	OIDC                    OIDCConnectConfig             `mapstructure:"oidc_connect"`
-	DingTalk                DingTalkConnectConfig         `mapstructure:"dingtalk_connect"`
-	GitHubOAuth             EmailOAuthProviderConfig      `mapstructure:"github_oauth"`
-	GoogleOAuth             EmailOAuthProviderConfig      `mapstructure:"google_oauth"`
 	Default                 DefaultConfig                 `mapstructure:"default"`
 	RateLimit               RateLimitConfig               `mapstructure:"rate_limit"`
 	Pricing                 PricingConfig                 `mapstructure:"pricing"`
@@ -118,54 +106,6 @@ type Config struct {
 // SimpleModeConfig controls startup behavior in simple mode.
 type SimpleModeConfig struct {
 	AutoCreateDefaultGroups bool `mapstructure:"auto_create_default_groups" yaml:"auto_create_default_groups"`
-}
-
-// MCPConfig fixes the public resource URL used by OAuth discovery and tokens.
-// Setting it is also the explicit opt-in that enables MCP.
-type MCPConfig struct {
-	PublicURL string `mapstructure:"public_url"`
-}
-
-// Enabled reports whether the operator opted in to the management MCP endpoint.
-func (c MCPConfig) Enabled() bool { return strings.TrimSpace(c.PublicURL) != "" }
-
-// Validate normalizes the configured resource URL without trusting request headers.
-// An empty URL keeps MCP and its OAuth endpoints disabled.
-func (c *MCPConfig) Validate() error {
-	raw := strings.TrimSpace(c.PublicURL)
-	if raw == "" {
-		c.PublicURL = ""
-		return nil
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("mcp.public_url invalid: %w", err)
-	}
-	if !u.IsAbs() || u.Hostname() == "" || !httpguts.ValidHostHeader(u.Host) || strings.ContainsAny(u.Host, "*%") {
-		return fmt.Errorf("mcp.public_url must be an absolute URL with a valid host")
-	}
-	if u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(raw, "#") {
-		return fmt.Errorf("mcp.public_url must not include userinfo, query, or fragment")
-	}
-	if u.Path != "/api/v1/mcp" || u.EscapedPath() != "/api/v1/mcp" {
-		return fmt.Errorf("mcp.public_url must have the exact path /api/v1/mcp without a trailing slash")
-	}
-	if port := u.Port(); port != "" {
-		n, err := strconv.Atoi(port)
-		if err != nil || n < 1 || n > 65535 {
-			return fmt.Errorf("mcp.public_url must have a valid port")
-		}
-	}
-	u.Scheme = strings.ToLower(u.Scheme)
-	u.Host = strings.ToLower(u.Host)
-	host := u.Hostname()
-	addr, _ := netip.ParseAddr(host)
-	localDevelopment := host == "localhost" || addr.IsLoopback()
-	if u.Scheme != "https" && (u.Scheme != "http" || !localDevelopment) {
-		return fmt.Errorf("mcp.public_url must use HTTPS (HTTP is allowed only for localhost or loopback IPs)")
-	}
-	c.PublicURL = u.String()
-	return nil
 }
 
 // PluginConfig 控制管理员手动上传的本地进程插件。
@@ -352,218 +292,10 @@ func (c *ImageStorageConfig) MissingCredentialKeys() []string {
 	return missing
 }
 
-type LinuxDoConnectConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	ClientID            string `mapstructure:"client_id"`
-	ClientSecret        string `mapstructure:"client_secret"`
-	AuthorizeURL        string `mapstructure:"authorize_url"`
-	TokenURL            string `mapstructure:"token_url"`
-	UserInfoURL         string `mapstructure:"userinfo_url"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`          // 后端回调地址（需在提供方后台登记）
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"` // 前端接收 token 的路由（默认：/auth/linuxdo/callback）
-	TokenAuthMethod     string `mapstructure:"token_auth_method"`     // client_secret_post / client_secret_basic / none
-	UsePKCE             bool   `mapstructure:"use_pkce"`
-
-	// 可选：用于从 userinfo JSON 中提取字段的 gjson 路径。
-	// 为空时，服务端会尝试一组常见字段名。
-	UserInfoEmailPath    string `mapstructure:"userinfo_email_path"`
-	UserInfoIDPath       string `mapstructure:"userinfo_id_path"`
-	UserInfoUsernamePath string `mapstructure:"userinfo_username_path"`
-}
-
 type WeChatConnectConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	AppID               string `mapstructure:"app_id"`
-	AppSecret           string `mapstructure:"app_secret"`
-	OpenAppID           string `mapstructure:"open_app_id"`
-	OpenAppSecret       string `mapstructure:"open_app_secret"`
-	MPAppID             string `mapstructure:"mp_app_id"`
-	MPAppSecret         string `mapstructure:"mp_app_secret"`
-	MobileAppID         string `mapstructure:"mobile_app_id"`
-	MobileAppSecret     string `mapstructure:"mobile_app_secret"`
-	OpenEnabled         bool   `mapstructure:"open_enabled"`
-	MPEnabled           bool   `mapstructure:"mp_enabled"`
-	MobileEnabled       bool   `mapstructure:"mobile_enabled"`
-	Mode                string `mapstructure:"mode"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
-}
-
-type OIDCConnectConfig struct {
-	Enabled                 bool   `mapstructure:"enabled"`
-	ProviderName            string `mapstructure:"provider_name"` // 显示名: "Keycloak" 等
-	ClientID                string `mapstructure:"client_id"`
-	ClientSecret            string `mapstructure:"client_secret"`
-	IssuerURL               string `mapstructure:"issuer_url"`
-	DiscoveryURL            string `mapstructure:"discovery_url"`
-	AuthorizeURL            string `mapstructure:"authorize_url"`
-	TokenURL                string `mapstructure:"token_url"`
-	UserInfoURL             string `mapstructure:"userinfo_url"`
-	JWKSURL                 string `mapstructure:"jwks_url"`
-	Scopes                  string `mapstructure:"scopes"`                // 默认 "openid email profile"
-	RedirectURL             string `mapstructure:"redirect_url"`          // 后端回调地址（需在提供方后台登记）
-	FrontendRedirectURL     string `mapstructure:"frontend_redirect_url"` // 前端接收 token 的路由（默认：/auth/oidc/callback）
-	TokenAuthMethod         string `mapstructure:"token_auth_method"`     // client_secret_post / client_secret_basic / none
-	UsePKCE                 bool   `mapstructure:"use_pkce"`
-	ValidateIDToken         bool   `mapstructure:"validate_id_token"`
-	UsePKCEExplicit         bool   `mapstructure:"-" yaml:"-"`
-	ValidateIDTokenExplicit bool   `mapstructure:"-" yaml:"-"`
-	AllowedSigningAlgs      string `mapstructure:"allowed_signing_algs"`   // 默认 "RS256,ES256,PS256"
-	ClockSkewSeconds        int    `mapstructure:"clock_skew_seconds"`     // 默认 120
-	RequireEmailVerified    bool   `mapstructure:"require_email_verified"` // 默认 false
-
-	// 可选：用于从 userinfo JSON 中提取字段的 gjson 路径。
-	// 为空时，服务端会尝试一组常见字段名。
-	UserInfoEmailPath    string `mapstructure:"userinfo_email_path"`
-	UserInfoIDPath       string `mapstructure:"userinfo_id_path"`
-	UserInfoUsernamePath string `mapstructure:"userinfo_username_path"`
-}
-
-type DingTalkConnectConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	ClientID            string `mapstructure:"client_id"`
-	ClientSecret        string `mapstructure:"client_secret"`
-	AuthorizeURL        string `mapstructure:"authorize_url"`
-	TokenURL            string `mapstructure:"token_url"`
-	UserInfoURL         string `mapstructure:"userinfo_url"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
-
-	// 平台底座 + 业务行为
-	DingTalkAppKind string `mapstructure:"dingtalk_app_kind"` // 仅 "internal_app"（V4 fail-closed）
-	AppType         string `mapstructure:"app_type"`          // "public" (default) | "internal"
-
-	// Corp 限定（none | internal_only）
-	CorpRestrictionPolicy   string `mapstructure:"corp_restriction_policy"`
-	InternalCorpID          string `mapstructure:"internal_corp_id"`
-	BypassRegistration      bool   `mapstructure:"bypass_registration"`
-	SyncCorpEmail           bool   `mapstructure:"sync_corp_email"`
-	SyncDisplayName         bool   `mapstructure:"sync_display_name"`
-	SyncDept                bool   `mapstructure:"sync_dept"`
-	SyncCorpEmailAttrKey    string `mapstructure:"sync_corp_email_attr_key"`
-	SyncDisplayNameAttrKey  string `mapstructure:"sync_display_name_attr_key"`
-	SyncDeptAttrKey         string `mapstructure:"sync_dept_attr_key"`
-	SyncCorpEmailAttrName   string `mapstructure:"sync_corp_email_attr_name"`
-	SyncDisplayNameAttrName string `mapstructure:"sync_display_name_attr_name"`
-	SyncDeptAttrName        string `mapstructure:"sync_dept_attr_name"`
-
-	// 邮箱 + Username
-	RequireEmail            bool   `mapstructure:"require_email"`
-	UsernameOverwritePolicy string `mapstructure:"username_overwrite_policy"`
-
-	// Attribute（私有版扩展点；开源版仅声明）
-	UsernameAttributeKey         string   `mapstructure:"username_attribute_key"`
-	EnableAttributeMatching      bool     `mapstructure:"enable_attribute_matching"`
-	EnableAttributeSync          bool     `mapstructure:"enable_attribute_sync"`
-	AttributeSyncFields          []string `mapstructure:"attribute_sync_fields"`
-	AttributeSyncOverwritePolicy string   `mapstructure:"attribute_sync_overwrite_policy"`
-}
-
-type EmailOAuthProviderConfig struct {
-	Enabled             bool   `mapstructure:"enabled"`
-	ClientID            string `mapstructure:"client_id"`
-	ClientSecret        string `mapstructure:"client_secret"`
-	AuthorizeURL        string `mapstructure:"authorize_url"`
-	TokenURL            string `mapstructure:"token_url"`
-	UserInfoURL         string `mapstructure:"userinfo_url"`
-	EmailsURL           string `mapstructure:"emails_url"`
-	Scopes              string `mapstructure:"scopes"`
-	RedirectURL         string `mapstructure:"redirect_url"`
-	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
-}
-
-const (
-	defaultWeChatConnectMode             = "open"
-	defaultWeChatConnectScopes           = "snsapi_login"
-	defaultWeChatConnectFrontendRedirect = "/auth/wechat/callback"
-)
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
-func normalizeWeChatConnectMode(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "mp":
-		return "mp"
-	case "mobile":
-		return "mobile"
-	default:
-		return defaultWeChatConnectMode
-	}
-}
-
-func normalizeWeChatConnectStoredMode(openEnabled, mpEnabled, mobileEnabled bool, mode string) string {
-	mode = normalizeWeChatConnectMode(mode)
-	switch mode {
-	case "open":
-		if openEnabled {
-			return "open"
-		}
-	case "mp":
-		if mpEnabled {
-			return "mp"
-		}
-	case "mobile":
-		if mobileEnabled {
-			return "mobile"
-		}
-	}
-	switch {
-	case openEnabled:
-		return "open"
-	case mpEnabled:
-		return "mp"
-	case mobileEnabled:
-		return "mobile"
-	default:
-		return mode
-	}
-}
-
-func defaultWeChatConnectScopesForMode(mode string) string {
-	switch normalizeWeChatConnectMode(mode) {
-	case "mp":
-		return "snsapi_userinfo"
-	case "mobile":
-		return ""
-	default:
-		return defaultWeChatConnectScopes
-	}
-}
-
-func normalizeWeChatConnectScopes(raw, mode string) string {
-	switch normalizeWeChatConnectMode(mode) {
-	case "mp":
-		switch strings.TrimSpace(raw) {
-		case "snsapi_base":
-			return "snsapi_base"
-		case "snsapi_userinfo":
-			return "snsapi_userinfo"
-		default:
-			return defaultWeChatConnectScopesForMode(mode)
-		}
-	case "mobile":
-		return ""
-	default:
-		return defaultWeChatConnectScopes
-	}
-}
-
-func shouldApplyLegacyWeChatEnv(configKey, envKey string) bool {
-	if viper.InConfig(configKey) {
-		return false
-	}
-	_, hasNewEnv := os.LookupEnv(envKey)
-	return !hasNewEnv
+	MPAppID     string `mapstructure:"mp_app_id"`
+	MPAppSecret string `mapstructure:"mp_app_secret"`
+	MPEnabled   bool   `mapstructure:"mp_enabled"`
 }
 
 // detectMemoryLimitBytes is replaced in tests so defaults do not depend on the host.
@@ -582,134 +314,6 @@ const (
 func autoRequestBodyMemoryBudget(memoryLimitBytes uint64) int64 {
 	// uint64 / 4 always fits in int64.
 	return max(int64(memoryLimitBytes/requestBodyMemoryBudgetDivisor), defaultRequestBodyMemoryBudgetBytes)
-}
-
-func hasExplicitConfigOrEnv(configKey, envKey string) bool {
-	if viper.InConfig(configKey) {
-		return true
-	}
-	_, ok := os.LookupEnv(envKey)
-	return ok
-}
-
-func applyLegacyWeChatConnectEnvCompatibility(cfg *WeChatConnectConfig) {
-	if cfg == nil {
-		return
-	}
-
-	legacyOpenAppID := ""
-	if shouldApplyLegacyWeChatEnv("wechat_connect.open_app_id", "WECHAT_CONNECT_OPEN_APP_ID") &&
-		shouldApplyLegacyWeChatEnv("wechat_connect.app_id", "WECHAT_CONNECT_APP_ID") {
-		legacyOpenAppID = strings.TrimSpace(os.Getenv("WECHAT_OAUTH_OPEN_APP_ID"))
-		if legacyOpenAppID != "" {
-			cfg.OpenAppID = legacyOpenAppID
-		}
-	}
-
-	legacyOpenAppSecret := ""
-	if shouldApplyLegacyWeChatEnv("wechat_connect.open_app_secret", "WECHAT_CONNECT_OPEN_APP_SECRET") &&
-		shouldApplyLegacyWeChatEnv("wechat_connect.app_secret", "WECHAT_CONNECT_APP_SECRET") {
-		legacyOpenAppSecret = strings.TrimSpace(os.Getenv("WECHAT_OAUTH_OPEN_APP_SECRET"))
-		if legacyOpenAppSecret != "" {
-			cfg.OpenAppSecret = legacyOpenAppSecret
-		}
-	}
-
-	legacyMPAppID := ""
-	if shouldApplyLegacyWeChatEnv("wechat_connect.mp_app_id", "WECHAT_CONNECT_MP_APP_ID") &&
-		shouldApplyLegacyWeChatEnv("wechat_connect.app_id", "WECHAT_CONNECT_APP_ID") {
-		legacyMPAppID = strings.TrimSpace(os.Getenv("WECHAT_OAUTH_MP_APP_ID"))
-		if legacyMPAppID != "" {
-			cfg.MPAppID = legacyMPAppID
-		}
-	}
-
-	legacyMPAppSecret := ""
-	if shouldApplyLegacyWeChatEnv("wechat_connect.mp_app_secret", "WECHAT_CONNECT_MP_APP_SECRET") &&
-		shouldApplyLegacyWeChatEnv("wechat_connect.app_secret", "WECHAT_CONNECT_APP_SECRET") {
-		legacyMPAppSecret = strings.TrimSpace(os.Getenv("WECHAT_OAUTH_MP_APP_SECRET"))
-		if legacyMPAppSecret != "" {
-			cfg.MPAppSecret = legacyMPAppSecret
-		}
-	}
-
-	if shouldApplyLegacyWeChatEnv("wechat_connect.frontend_redirect_url", "WECHAT_CONNECT_FRONTEND_REDIRECT_URL") {
-		if legacyFrontend := strings.TrimSpace(os.Getenv("WECHAT_OAUTH_FRONTEND_REDIRECT_URL")); legacyFrontend != "" {
-			cfg.FrontendRedirectURL = legacyFrontend
-		}
-	}
-
-	hasLegacyOpen := legacyOpenAppID != "" && legacyOpenAppSecret != ""
-	hasLegacyMP := legacyMPAppID != "" && legacyMPAppSecret != ""
-
-	if shouldApplyLegacyWeChatEnv("wechat_connect.enabled", "WECHAT_CONNECT_ENABLED") && (hasLegacyOpen || hasLegacyMP) {
-		cfg.Enabled = true
-	}
-	if shouldApplyLegacyWeChatEnv("wechat_connect.open_enabled", "WECHAT_CONNECT_OPEN_ENABLED") && hasLegacyOpen {
-		cfg.OpenEnabled = true
-	}
-	if shouldApplyLegacyWeChatEnv("wechat_connect.mp_enabled", "WECHAT_CONNECT_MP_ENABLED") && hasLegacyMP {
-		cfg.MPEnabled = true
-	}
-	if shouldApplyLegacyWeChatEnv("wechat_connect.mode", "WECHAT_CONNECT_MODE") {
-		switch {
-		case hasLegacyMP && !hasLegacyOpen:
-			cfg.Mode = "mp"
-		case hasLegacyOpen:
-			cfg.Mode = "open"
-		}
-	}
-	if shouldApplyLegacyWeChatEnv("wechat_connect.scopes", "WECHAT_CONNECT_SCOPES") {
-		switch {
-		case hasLegacyMP && !hasLegacyOpen:
-			cfg.Scopes = defaultWeChatConnectScopesForMode("mp")
-		case hasLegacyOpen:
-			cfg.Scopes = defaultWeChatConnectScopesForMode("open")
-		}
-	}
-}
-
-func normalizeWeChatConnectConfig(cfg *WeChatConnectConfig) {
-	if cfg == nil {
-		return
-	}
-
-	cfg.AppID = strings.TrimSpace(cfg.AppID)
-	cfg.AppSecret = strings.TrimSpace(cfg.AppSecret)
-	cfg.OpenAppID = strings.TrimSpace(cfg.OpenAppID)
-	cfg.OpenAppSecret = strings.TrimSpace(cfg.OpenAppSecret)
-	cfg.MPAppID = strings.TrimSpace(cfg.MPAppID)
-	cfg.MPAppSecret = strings.TrimSpace(cfg.MPAppSecret)
-	cfg.MobileAppID = strings.TrimSpace(cfg.MobileAppID)
-	cfg.MobileAppSecret = strings.TrimSpace(cfg.MobileAppSecret)
-	cfg.Mode = normalizeWeChatConnectMode(cfg.Mode)
-	cfg.RedirectURL = strings.TrimSpace(cfg.RedirectURL)
-	cfg.FrontendRedirectURL = strings.TrimSpace(cfg.FrontendRedirectURL)
-
-	cfg.AppID = firstNonEmptyString(cfg.AppID, cfg.OpenAppID, cfg.MPAppID, cfg.MobileAppID)
-	cfg.AppSecret = firstNonEmptyString(cfg.AppSecret, cfg.OpenAppSecret, cfg.MPAppSecret, cfg.MobileAppSecret)
-	cfg.OpenAppID = firstNonEmptyString(cfg.OpenAppID, cfg.AppID)
-	cfg.OpenAppSecret = firstNonEmptyString(cfg.OpenAppSecret, cfg.AppSecret)
-	cfg.MPAppID = firstNonEmptyString(cfg.MPAppID, cfg.AppID)
-	cfg.MPAppSecret = firstNonEmptyString(cfg.MPAppSecret, cfg.AppSecret)
-	cfg.MobileAppID = firstNonEmptyString(cfg.MobileAppID, cfg.AppID)
-	cfg.MobileAppSecret = firstNonEmptyString(cfg.MobileAppSecret, cfg.AppSecret)
-
-	if !cfg.OpenEnabled && !cfg.MPEnabled && !cfg.MobileEnabled && cfg.Enabled {
-		switch cfg.Mode {
-		case "mp":
-			cfg.MPEnabled = true
-		case "mobile":
-			cfg.MobileEnabled = true
-		default:
-			cfg.OpenEnabled = true
-		}
-	}
-	cfg.Mode = normalizeWeChatConnectStoredMode(cfg.OpenEnabled, cfg.MPEnabled, cfg.MobileEnabled, cfg.Mode)
-	cfg.Scopes = normalizeWeChatConnectScopes(cfg.Scopes, cfg.Mode)
-	if cfg.FrontendRedirectURL == "" {
-		cfg.FrontendRedirectURL = defaultWeChatConnectFrontendRedirect
-	}
 }
 
 // TokenRefreshConfig OAuth token自动刷新配置
@@ -783,16 +387,6 @@ type H2CConfig struct {
 type CORSConfig struct {
 	AllowedOrigins   []string `mapstructure:"allowed_origins"`
 	AllowCredentials bool     `mapstructure:"allow_credentials"`
-}
-
-// WebAuthnConfig configures this deployment as a WebAuthn relying party.
-// RPID and RPOrigins are security boundaries and must never be inferred from
-// untrusted request Host or Origin headers.
-type WebAuthnConfig struct {
-	Enabled       bool     `mapstructure:"enabled"`
-	RPDisplayName string   `mapstructure:"rp_display_name"`
-	RPID          string   `mapstructure:"rp_id"`
-	RPOrigins     []string `mapstructure:"rp_origins"`
 }
 
 const MaxForwardedClientIPHeaders = 16
@@ -1631,12 +1225,14 @@ func (s *ServerConfig) Address() string {
 // DatabaseConfig 数据库连接配置
 // 性能优化：新增连接池参数，避免频繁创建/销毁连接
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"dbname"`
-	SSLMode  string `mapstructure:"sslmode"`
+	Host             string `mapstructure:"host"`
+	Port             int    `mapstructure:"port"`
+	User             string `mapstructure:"user"`
+	Password         string `mapstructure:"password"`
+	DBName           string `mapstructure:"dbname"`
+	SSLMode          string `mapstructure:"sslmode"`
+	Schema           string `mapstructure:"schema"`
+	ExtensionsSchema string `mapstructure:"extensions_schema"`
 	// 连接池配置（性能优化：可配置化连接池参数）
 	// MaxOpenConns: 最大打开连接数，控制数据库连接上限，防止资源耗尽
 	MaxOpenConns int `mapstructure:"max_open_conns"`
@@ -1655,18 +1251,87 @@ type DatabaseConfig struct {
 	UserPlatformQuotaFlushBatchSize int `mapstructure:"user_platform_quota_flush_batch_size"`
 }
 
+// SupabaseConfig describes the sole identity provider and its read-only database bridge.
+type SupabaseConfig struct {
+	Issuer                     string `mapstructure:"issuer"`
+	Audience                   string `mapstructure:"audience"`
+	JWKSURL                    string `mapstructure:"jwks_url"`
+	BridgeSchema               string `mapstructure:"bridge_schema"`
+	APIURL                     string `mapstructure:"api_url"`
+	JWKSCacheTTLSeconds        int    `mapstructure:"jwks_cache_ttl_seconds"`
+	JWKSRefreshIntervalSeconds int    `mapstructure:"jwks_refresh_interval_seconds"`
+	HTTPTimeoutSeconds         int    `mapstructure:"http_timeout_seconds"`
+}
+
+func (s *SupabaseConfig) Validate() error {
+	for name, value := range map[string]string{"issuer": s.Issuer, "jwks_url": s.JWKSURL, "api_url": s.APIURL} {
+		if value == "" {
+			return fmt.Errorf("supabase.%s is required", name)
+		}
+		if err := ValidateAbsoluteHTTPURL(value); err != nil {
+			return fmt.Errorf("supabase.%s: %w", name, err)
+		}
+	}
+	if strings.TrimSpace(s.Audience) == "" {
+		return fmt.Errorf("supabase.audience is required")
+	}
+	if err := ValidateSchemaName(s.BridgeSchema); err != nil {
+		return fmt.Errorf("supabase.bridge_schema: %w", err)
+	}
+	if s.JWKSCacheTTLSeconds < 1 || s.JWKSCacheTTLSeconds > 3600 {
+		return fmt.Errorf("supabase.jwks_cache_ttl_seconds must be between 1 and 3600")
+	}
+	if s.JWKSRefreshIntervalSeconds < 1 || s.JWKSRefreshIntervalSeconds > s.JWKSCacheTTLSeconds {
+		return fmt.Errorf("supabase.jwks_refresh_interval_seconds must be between 1 and jwks_cache_ttl_seconds")
+	}
+	if s.HTTPTimeoutSeconds < 1 || s.HTTPTimeoutSeconds > 30 {
+		return fmt.Errorf("supabase.http_timeout_seconds must be between 1 and 30")
+	}
+	return nil
+}
+
+func ValidateSchemaName(name string) error {
+	if name == "" || len(name) > 63 {
+		return fmt.Errorf("schema name must contain 1 to 63 ASCII identifier characters")
+	}
+	for i, c := range name {
+		if (c >= 'a' && c <= 'z') || c == '_' || (i > 0 && c >= '0' && c <= '9') {
+			continue
+		}
+		return fmt.Errorf("invalid schema name %q", name)
+	}
+	return nil
+}
+
+func (d *DatabaseConfig) ValidateSchema() error {
+	if err := ValidateSchemaName(d.Schema); err != nil {
+		return fmt.Errorf("database.schema: %w", err)
+	}
+	if err := ValidateSchemaName(d.ExtensionsSchema); err != nil {
+		return fmt.Errorf("database.extensions_schema: %w", err)
+	}
+	if d.Schema == d.ExtensionsSchema || d.Schema == "public" || d.Schema == "auth" || strings.HasPrefix(d.Schema, "pg_") {
+		return fmt.Errorf("database.schema must be a private business schema separate from extensions")
+	}
+	return nil
+}
+
+func (d *DatabaseConfig) schemaDSN() string {
+	return " search_path='\"" + d.Schema + "\",\"" + d.ExtensionsSchema + "\"'"
+}
+
 func (d *DatabaseConfig) DSN() string {
 	// 当密码为空时不包含 password 参数，避免 libpq 解析错误
 	if d.Password == "" {
 		return fmt.Sprintf(
 			"host=%s port=%d user=%s dbname=%s sslmode=%s",
 			d.Host, d.Port, d.User, d.DBName, d.SSLMode,
-		)
+		) + d.schemaDSN()
 	}
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		d.Host, d.Port, d.User, d.Password, d.DBName, d.SSLMode,
-	)
+	) + d.schemaDSN()
 }
 
 // DSNWithTimezone returns DSN with timezone setting
@@ -1679,12 +1344,12 @@ func (d *DatabaseConfig) DSNWithTimezone(tz string) string {
 		return fmt.Sprintf(
 			"host=%s port=%d user=%s dbname=%s sslmode=%s TimeZone=%s",
 			d.Host, d.Port, d.User, d.DBName, d.SSLMode, tz,
-		)
+		) + d.schemaDSN()
 	}
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
 		d.Host, d.Port, d.User, d.Password, d.DBName, d.SSLMode, tz,
-	)
+	) + d.schemaDSN()
 }
 
 // RedisConfig Redis 连接配置
@@ -1755,36 +1420,15 @@ type OpsMetricsCollectorCacheConfig struct {
 	TTL     time.Duration `mapstructure:"ttl"`
 }
 
-type JWTConfig struct {
-	Secret     string `mapstructure:"secret"`
-	ExpireHour int    `mapstructure:"expire_hour"`
-	// AccessTokenExpireMinutes: Access Token有效期（分钟）
-	// - >0: 使用分钟配置（优先级高于 ExpireHour）
-	// - =0: 回退使用 ExpireHour（向后兼容旧配置）
-	AccessTokenExpireMinutes int `mapstructure:"access_token_expire_minutes"`
-	// RefreshTokenExpireDays: Refresh Token有效期（天），默认30天
-	RefreshTokenExpireDays int `mapstructure:"refresh_token_expire_days"`
-	// RefreshWindowMinutes: 刷新窗口（分钟），在Access Token过期前多久开始允许刷新
-	RefreshWindowMinutes int `mapstructure:"refresh_window_minutes"`
-}
-
-// TotpConfig TOTP 双因素认证配置
-type TotpConfig struct {
-	// EncryptionKey 用于加密 TOTP 密钥的 AES-256 密钥（32 字节 hex 编码）
-	// 如果为空，将自动生成一个随机密钥（仅适用于开发环境）
+// SecretsConfig configures persistent encryption for business credentials.
+type SecretsConfig struct {
+	// EncryptionKey is the persistent AES-256 business credential key (64 hex characters).
 	EncryptionKey string `mapstructure:"encryption_key"`
-	// EncryptionKeyConfigured 标记加密密钥是否为手动配置（非自动生成）
-	// 只有手动配置了密钥才允许在管理后台启用 TOTP 功能
+	// EncryptionKeyConfigured indicates that an operator supplied the key.
 	EncryptionKeyConfigured bool `mapstructure:"-"`
 }
 
-type TurnstileConfig struct {
-	Required bool `mapstructure:"required"`
-}
-
 type DefaultConfig struct {
-	AdminEmail      string  `mapstructure:"admin_email"`
-	AdminPassword   string  `mapstructure:"admin_password"`
 	UserConcurrency int     `mapstructure:"user_concurrency"`
 	UserBalance     float64 `mapstructure:"user_balance"`
 	APIKeyPrefix    string  `mapstructure:"api_key_prefix"`
@@ -1902,19 +1546,12 @@ func NormalizeRunMode(value string) string {
 	}
 }
 
-// Load 读取并校验完整配置（要求 jwt.secret 已显式提供）。
+// Load reads and validates application configuration.
 func Load() (*Config, error) {
-	return load(false)
+	return load()
 }
 
-// LoadForBootstrap 读取启动阶段配置。
-//
-// 启动阶段允许 jwt.secret 先留空，后续由数据库初始化流程补齐并再次完整校验。
-func LoadForBootstrap() (*Config, error) {
-	return load(true)
-}
-
-func load(allowMissingJWTSecret bool) (*Config, error) {
+func load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	configureConfigSource(viper.SetConfigFile, viper.AddConfigPath)
@@ -1983,40 +1620,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.Server.Mode = "debug"
 	}
 	cfg.Server.FrontendURL = strings.TrimSpace(cfg.Server.FrontendURL)
-	cfg.JWT.Secret = strings.TrimSpace(cfg.JWT.Secret)
-	cfg.LinuxDo.ClientID = strings.TrimSpace(cfg.LinuxDo.ClientID)
-	cfg.LinuxDo.ClientSecret = strings.TrimSpace(cfg.LinuxDo.ClientSecret)
-	cfg.LinuxDo.AuthorizeURL = strings.TrimSpace(cfg.LinuxDo.AuthorizeURL)
-	cfg.LinuxDo.TokenURL = strings.TrimSpace(cfg.LinuxDo.TokenURL)
-	cfg.LinuxDo.UserInfoURL = strings.TrimSpace(cfg.LinuxDo.UserInfoURL)
-	cfg.LinuxDo.Scopes = strings.TrimSpace(cfg.LinuxDo.Scopes)
-	cfg.LinuxDo.RedirectURL = strings.TrimSpace(cfg.LinuxDo.RedirectURL)
-	cfg.LinuxDo.FrontendRedirectURL = strings.TrimSpace(cfg.LinuxDo.FrontendRedirectURL)
-	cfg.LinuxDo.TokenAuthMethod = strings.ToLower(strings.TrimSpace(cfg.LinuxDo.TokenAuthMethod))
-	cfg.LinuxDo.UserInfoEmailPath = strings.TrimSpace(cfg.LinuxDo.UserInfoEmailPath)
-	cfg.LinuxDo.UserInfoIDPath = strings.TrimSpace(cfg.LinuxDo.UserInfoIDPath)
-	cfg.LinuxDo.UserInfoUsernamePath = strings.TrimSpace(cfg.LinuxDo.UserInfoUsernamePath)
-	applyLegacyWeChatConnectEnvCompatibility(&cfg.WeChat)
-	normalizeWeChatConnectConfig(&cfg.WeChat)
-	cfg.OIDC.ProviderName = strings.TrimSpace(cfg.OIDC.ProviderName)
-	cfg.OIDC.ClientID = strings.TrimSpace(cfg.OIDC.ClientID)
-	cfg.OIDC.ClientSecret = strings.TrimSpace(cfg.OIDC.ClientSecret)
-	cfg.OIDC.IssuerURL = strings.TrimSpace(cfg.OIDC.IssuerURL)
-	cfg.OIDC.DiscoveryURL = strings.TrimSpace(cfg.OIDC.DiscoveryURL)
-	cfg.OIDC.AuthorizeURL = strings.TrimSpace(cfg.OIDC.AuthorizeURL)
-	cfg.OIDC.TokenURL = strings.TrimSpace(cfg.OIDC.TokenURL)
-	cfg.OIDC.UserInfoURL = strings.TrimSpace(cfg.OIDC.UserInfoURL)
-	cfg.OIDC.JWKSURL = strings.TrimSpace(cfg.OIDC.JWKSURL)
-	cfg.OIDC.Scopes = strings.TrimSpace(cfg.OIDC.Scopes)
-	cfg.OIDC.RedirectURL = strings.TrimSpace(cfg.OIDC.RedirectURL)
-	cfg.OIDC.FrontendRedirectURL = strings.TrimSpace(cfg.OIDC.FrontendRedirectURL)
-	cfg.OIDC.TokenAuthMethod = strings.ToLower(strings.TrimSpace(cfg.OIDC.TokenAuthMethod))
-	cfg.OIDC.AllowedSigningAlgs = strings.TrimSpace(cfg.OIDC.AllowedSigningAlgs)
-	cfg.OIDC.UserInfoEmailPath = strings.TrimSpace(cfg.OIDC.UserInfoEmailPath)
-	cfg.OIDC.UserInfoIDPath = strings.TrimSpace(cfg.OIDC.UserInfoIDPath)
-	cfg.OIDC.UserInfoUsernamePath = strings.TrimSpace(cfg.OIDC.UserInfoUsernamePath)
-	cfg.OIDC.UsePKCEExplicit = hasExplicitConfigOrEnv("oidc_connect.use_pkce", "OIDC_CONNECT_USE_PKCE")
-	cfg.OIDC.ValidateIDTokenExplicit = hasExplicitConfigOrEnv("oidc_connect.validate_id_token", "OIDC_CONNECT_VALIDATE_ID_TOKEN")
+	cfg.Secrets.EncryptionKey = strings.TrimSpace(cfg.Secrets.EncryptionKey)
+	cfg.Secrets.EncryptionKeyConfigured = cfg.Secrets.EncryptionKey != ""
 	cfg.Dashboard.KeyPrefix = strings.TrimSpace(cfg.Dashboard.KeyPrefix)
 	cfg.CORS.AllowedOrigins = normalizeStringSlice(cfg.CORS.AllowedOrigins)
 	cfg.Security.ResponseHeaders.AdditionalAllowed = normalizeStringSlice(cfg.Security.ResponseHeaders.AdditionalAllowed)
@@ -2064,32 +1669,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.Gateway.UserMessageQueue.Mode = ""
 	}
 
-	// Auto-generate TOTP encryption key if not set (32 bytes = 64 hex chars for AES-256)
-	cfg.Totp.EncryptionKey = strings.TrimSpace(cfg.Totp.EncryptionKey)
-	if cfg.Totp.EncryptionKey == "" {
-		key, err := generateJWTSecret(32) // Reuse the same random generation function
-		if err != nil {
-			return nil, fmt.Errorf("generate totp encryption key error: %w", err)
-		}
-		cfg.Totp.EncryptionKey = key
-		cfg.Totp.EncryptionKeyConfigured = false
-		slog.Warn("TOTP encryption key auto-generated. Consider setting a fixed key for production.")
-	} else {
-		cfg.Totp.EncryptionKeyConfigured = true
-	}
-
-	originalJWTSecret := cfg.JWT.Secret
-	if allowMissingJWTSecret && originalJWTSecret == "" {
-		// 启动阶段允许先无 JWT 密钥，后续在数据库初始化后补齐。
-		cfg.JWT.Secret = strings.Repeat("0", 32)
-	}
-
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config error: %w", err)
-	}
-
-	if allowMissingJWTSecret && originalJWTSecret == "" {
-		cfg.JWT.Secret = ""
 	}
 
 	if !cfg.Security.URLAllowlist.Enabled {
@@ -2099,9 +1680,6 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		slog.Warn("security.response_headers.enabled=false; configurable header filtering disabled (default allowlist only).")
 	}
 
-	if cfg.JWT.Secret != "" && isWeakJWTSecret(cfg.JWT.Secret) {
-		slog.Warn("JWT secret appears weak; use a 32+ character random secret in production.")
-	}
 	if len(cfg.Security.ResponseHeaders.AdditionalAllowed) > 0 || len(cfg.Security.ResponseHeaders.ForceRemove) > 0 {
 		slog.Info("response header policy configured",
 			"additional_allowed", cfg.Security.ResponseHeaders.AdditionalAllowed,
@@ -2174,14 +1752,6 @@ func setDefaults() {
 	// CORS
 	viper.SetDefault("cors.allowed_origins", []string{})
 	viper.SetDefault("cors.allow_credentials", true)
-	viper.SetDefault("mcp.public_url", "")
-
-	// WebAuthn / Passkeys are opt-in because every deployment must explicitly
-	// declare its relying-party domain and trusted browser origins.
-	viper.SetDefault("webauthn.enabled", false)
-	viper.SetDefault("webauthn.rp_display_name", "Sub2API")
-	viper.SetDefault("webauthn.rp_id", "")
-	viper.SetDefault("webauthn.rp_origins", []string{})
 
 	// Security
 	viper.SetDefault("security.url_allowlist.enabled", false)
@@ -2233,79 +1803,10 @@ func setDefaults() {
 	viper.SetDefault("billing.inflight_reservation.max_reservation_usd", 0)
 	viper.SetDefault("billing.inflight_reservation.fail_closed_on_unpriced", false)
 
-	// Turnstile
-	viper.SetDefault("turnstile.required", false)
-
-	// LinuxDo Connect OAuth 登录
-	viper.SetDefault("linuxdo_connect.enabled", false)
-	viper.SetDefault("linuxdo_connect.client_id", "")
-	viper.SetDefault("linuxdo_connect.client_secret", "")
-	viper.SetDefault("linuxdo_connect.authorize_url", "https://connect.linux.do/oauth2/authorize")
-	viper.SetDefault("linuxdo_connect.token_url", "https://connect.linux.do/oauth2/token")
-	viper.SetDefault("linuxdo_connect.userinfo_url", "https://connect.linux.do/api/user")
-	viper.SetDefault("linuxdo_connect.scopes", "user")
-	viper.SetDefault("linuxdo_connect.redirect_url", "")
-	viper.SetDefault("linuxdo_connect.frontend_redirect_url", "/auth/linuxdo/callback")
-	viper.SetDefault("linuxdo_connect.token_auth_method", "client_secret_post")
-	viper.SetDefault("linuxdo_connect.use_pkce", false)
-	viper.SetDefault("linuxdo_connect.userinfo_email_path", "")
-	viper.SetDefault("linuxdo_connect.userinfo_id_path", "")
-	viper.SetDefault("linuxdo_connect.userinfo_username_path", "")
-
-	// WeChat Connect OAuth 登录
-	viper.SetDefault("wechat_connect.enabled", false)
-	viper.SetDefault("wechat_connect.app_id", "")
-	viper.SetDefault("wechat_connect.app_secret", "")
-	viper.SetDefault("wechat_connect.open_app_id", "")
-	viper.SetDefault("wechat_connect.open_app_secret", "")
+	// WeChat MP payment authorization
 	viper.SetDefault("wechat_connect.mp_app_id", "")
 	viper.SetDefault("wechat_connect.mp_app_secret", "")
-	viper.SetDefault("wechat_connect.mobile_app_id", "")
-	viper.SetDefault("wechat_connect.mobile_app_secret", "")
-	viper.SetDefault("wechat_connect.open_enabled", false)
 	viper.SetDefault("wechat_connect.mp_enabled", false)
-	viper.SetDefault("wechat_connect.mobile_enabled", false)
-	viper.SetDefault("wechat_connect.mode", defaultWeChatConnectMode)
-	viper.SetDefault("wechat_connect.scopes", defaultWeChatConnectScopes)
-	viper.SetDefault("wechat_connect.redirect_url", "")
-	viper.SetDefault("wechat_connect.frontend_redirect_url", defaultWeChatConnectFrontendRedirect)
-
-	// Generic OIDC OAuth 登录
-	viper.SetDefault("oidc_connect.enabled", false)
-	viper.SetDefault("oidc_connect.provider_name", "OIDC")
-	viper.SetDefault("oidc_connect.client_id", "")
-	viper.SetDefault("oidc_connect.client_secret", "")
-	viper.SetDefault("oidc_connect.issuer_url", "")
-	viper.SetDefault("oidc_connect.discovery_url", "")
-	viper.SetDefault("oidc_connect.authorize_url", "")
-	viper.SetDefault("oidc_connect.token_url", "")
-	viper.SetDefault("oidc_connect.userinfo_url", "")
-	viper.SetDefault("oidc_connect.jwks_url", "")
-	viper.SetDefault("oidc_connect.scopes", "openid email profile")
-	viper.SetDefault("oidc_connect.redirect_url", "")
-	viper.SetDefault("oidc_connect.frontend_redirect_url", "/auth/oidc/callback")
-	viper.SetDefault("oidc_connect.token_auth_method", "client_secret_post")
-	viper.SetDefault("oidc_connect.use_pkce", true)
-	viper.SetDefault("oidc_connect.validate_id_token", true)
-	viper.SetDefault("oidc_connect.allowed_signing_algs", "RS256,ES256,PS256")
-	viper.SetDefault("oidc_connect.clock_skew_seconds", 120)
-	viper.SetDefault("oidc_connect.require_email_verified", false)
-	viper.SetDefault("oidc_connect.userinfo_email_path", "")
-	viper.SetDefault("oidc_connect.userinfo_id_path", "")
-	viper.SetDefault("oidc_connect.userinfo_username_path", "")
-
-	// DingTalk Connect OAuth 登录
-	viper.SetDefault("dingtalk_connect.enabled", false)
-	viper.SetDefault("dingtalk_connect.authorize_url", "https://login.dingtalk.com/oauth2/auth")
-	viper.SetDefault("dingtalk_connect.token_url", "https://api.dingtalk.com/v1.0/oauth2/userAccessToken")
-	viper.SetDefault("dingtalk_connect.userinfo_url", "https://api.dingtalk.com/v1.0/contact/users/me")
-	viper.SetDefault("dingtalk_connect.scopes", "openid")
-	viper.SetDefault("dingtalk_connect.frontend_redirect_url", "/auth/dingtalk/callback")
-	viper.SetDefault("dingtalk_connect.dingtalk_app_kind", "internal_app")
-	viper.SetDefault("dingtalk_connect.app_type", "public")
-	viper.SetDefault("dingtalk_connect.corp_restriction_policy", "none")
-	viper.SetDefault("dingtalk_connect.require_email", true)
-	viper.SetDefault("dingtalk_connect.username_overwrite_policy", "if_empty")
 
 	// Database
 	viper.SetDefault("database.host", "localhost")
@@ -2314,6 +1815,16 @@ func setDefaults() {
 	viper.SetDefault("database.password", "postgres")
 	viper.SetDefault("database.dbname", "sub2api")
 	viper.SetDefault("database.sslmode", "prefer")
+	viper.SetDefault("database.schema", "sub2api")
+	viper.SetDefault("database.extensions_schema", "extensions")
+	viper.SetDefault("supabase.issuer", "")
+	viper.SetDefault("supabase.audience", "authenticated")
+	viper.SetDefault("supabase.jwks_url", "")
+	viper.SetDefault("supabase.bridge_schema", "sub2api_platform")
+	viper.SetDefault("supabase.api_url", "")
+	viper.SetDefault("supabase.jwks_cache_ttl_seconds", 300)
+	viper.SetDefault("supabase.jwks_refresh_interval_seconds", 10)
+	viper.SetDefault("supabase.http_timeout_seconds", 5)
 	viper.SetDefault("database.max_open_conns", 256)
 	viper.SetDefault("database.max_idle_conns", 128)
 	viper.SetDefault("database.conn_max_lifetime_minutes", 30)
@@ -2414,21 +1925,9 @@ func setDefaults() {
 	// TTL should be slightly larger than collection interval (1m) to maximize cross-replica cache hits.
 	viper.SetDefault("ops.metrics_collector_cache.ttl", 65*time.Second)
 
-	// JWT
-	viper.SetDefault("jwt.secret", "")
-	viper.SetDefault("jwt.expire_hour", 24)
-	viper.SetDefault("jwt.access_token_expire_minutes", 0) // 0 表示回退到 expire_hour
-	viper.SetDefault("jwt.refresh_token_expire_days", 30)  // 30天Refresh Token有效期
-	viper.SetDefault("jwt.refresh_window_minutes", 2)      // 过期前2分钟开始允许刷新
-
-	// TOTP
-	viper.SetDefault("totp.encryption_key", "")
+	viper.SetDefault("secrets.encryption_key", "")
 
 	// Default
-	// Admin credentials are created via the setup flow (web wizard / CLI / AUTO_SETUP).
-	// Do not ship fixed defaults here to avoid insecure "known credentials" in production.
-	viper.SetDefault("default.admin_email", "")
-	viper.SetDefault("default.admin_password", "")
 	viper.SetDefault("default.user_concurrency", 5)
 	viper.SetDefault("default.user_balance", 0)
 	viper.SetDefault("default.api_key_prefix", "sk-")
@@ -2792,25 +2291,6 @@ func setEnvReachableDefaults() {
 		viper.SetDefault(provider+".frontend_redirect_url", "")
 	}
 
-	viper.SetDefault("dingtalk_connect.client_id", "")
-	viper.SetDefault("dingtalk_connect.client_secret", "")
-	viper.SetDefault("dingtalk_connect.internal_corp_id", "")
-	viper.SetDefault("dingtalk_connect.redirect_url", "")
-	viper.SetDefault("dingtalk_connect.bypass_registration", false)
-	viper.SetDefault("dingtalk_connect.username_attribute_key", "")
-	viper.SetDefault("dingtalk_connect.enable_attribute_matching", false)
-	viper.SetDefault("dingtalk_connect.enable_attribute_sync", false)
-	viper.SetDefault("dingtalk_connect.attribute_sync_fields", []string{})
-	viper.SetDefault("dingtalk_connect.attribute_sync_overwrite_policy", "")
-	viper.SetDefault("dingtalk_connect.sync_display_name", false)
-	viper.SetDefault("dingtalk_connect.sync_display_name_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_display_name_attr_name", "")
-	viper.SetDefault("dingtalk_connect.sync_dept", false)
-	viper.SetDefault("dingtalk_connect.sync_dept_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_dept_attr_name", "")
-	viper.SetDefault("dingtalk_connect.sync_corp_email", false)
-	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_key", "")
-	viper.SetDefault("dingtalk_connect.sync_corp_email_attr_name", "")
 }
 
 func (c *Config) Validate() error {
@@ -2886,15 +2366,6 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("api_key_auth_cache.invalid_abuse.capacity must be between 256 and 1000000")
 		}
 	}
-	jwtSecret := strings.TrimSpace(c.JWT.Secret)
-	if jwtSecret == "" {
-		return fmt.Errorf("jwt.secret is required")
-	}
-	// NOTE: 按 UTF-8 编码后的字节长度计算。
-	// 选择 bytes 而不是 rune 计数，确保二进制/随机串的长度语义更接近“熵”而非“字符数”。
-	if len([]byte(jwtSecret)) < 32 {
-		return fmt.Errorf("jwt.secret must be at least 32 bytes")
-	}
 	switch c.Log.Level {
 	case "debug", "info", "warn", "error":
 	case "":
@@ -2959,9 +2430,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("gemini.oauth.client_id and gemini.oauth.client_secret must be both set or both empty")
 	}
 
-	if err := c.MCP.Validate(); err != nil {
-		return err
-	}
 	if strings.TrimSpace(c.Server.FrontendURL) != "" {
 		if err := ValidateAbsoluteHTTPURL(c.Server.FrontendURL); err != nil {
 			return fmt.Errorf("server.frontend_url invalid: %w", err)
@@ -2978,239 +2446,8 @@ func (c *Config) Validate() error {
 		}
 		warnIfInsecureURL("server.frontend_url", c.Server.FrontendURL)
 	}
-	if c.WebAuthn.Enabled {
-		c.WebAuthn.RPDisplayName = strings.TrimSpace(c.WebAuthn.RPDisplayName)
-		c.WebAuthn.RPID = strings.ToLower(strings.TrimSpace(c.WebAuthn.RPID))
-		c.WebAuthn.RPOrigins = normalizeStringSlice(c.WebAuthn.RPOrigins)
-		if c.WebAuthn.RPDisplayName == "" {
-			return fmt.Errorf("webauthn.rp_display_name is required when passkeys are enabled")
-		}
-		if c.WebAuthn.RPID == "" {
-			return fmt.Errorf("webauthn.rp_id is required when passkeys are enabled")
-		}
-		if strings.Contains(c.WebAuthn.RPID, "://") || strings.ContainsAny(c.WebAuthn.RPID, "/:") {
-			return fmt.Errorf("webauthn.rp_id must be a domain without scheme, port, or path")
-		}
-		if len(c.WebAuthn.RPOrigins) == 0 {
-			return fmt.Errorf("webauthn.rp_origins must contain at least one origin when passkeys are enabled")
-		}
-		for i, origin := range c.WebAuthn.RPOrigins {
-			u, err := url.Parse(origin)
-			if err != nil || u.Scheme == "" || u.Host == "" {
-				return fmt.Errorf("webauthn.rp_origins contains invalid origin %q", origin)
-			}
-			if u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" {
-				return fmt.Errorf("webauthn.rp_origins entry %q must not include userinfo, path, query, or fragment", origin)
-			}
-			u.Scheme = strings.ToLower(u.Scheme)
-			u.Host = strings.ToLower(u.Host)
-			host := strings.ToLower(u.Hostname())
-			localDevelopment := host == "localhost" || host == "127.0.0.1" || host == "::1"
-			if u.Scheme != "https" && (u.Scheme != "http" || !localDevelopment) {
-				return fmt.Errorf("webauthn.rp_origins entry %q must use HTTPS (HTTP is allowed only for localhost)", origin)
-			}
-			if host != c.WebAuthn.RPID && !strings.HasSuffix(host, "."+c.WebAuthn.RPID) {
-				return fmt.Errorf("webauthn.rp_origins entry %q is not within relying party ID %q", origin, c.WebAuthn.RPID)
-			}
-			c.WebAuthn.RPOrigins[i] = u.Scheme + "://" + u.Host
-		}
-	}
-	if c.JWT.ExpireHour <= 0 {
-		return fmt.Errorf("jwt.expire_hour must be positive")
-	}
-	if c.JWT.ExpireHour > 168 {
-		return fmt.Errorf("jwt.expire_hour must be <= 168 (7 days)")
-	}
-	if c.JWT.ExpireHour > 24 {
-		slog.Warn("jwt.expire_hour is high; consider shorter expiration for security", "expire_hour", c.JWT.ExpireHour)
-	}
-	// JWT Refresh Token配置验证
-	if c.JWT.AccessTokenExpireMinutes < 0 {
-		return fmt.Errorf("jwt.access_token_expire_minutes must be non-negative")
-	}
-	if c.JWT.AccessTokenExpireMinutes > 720 {
-		slog.Warn("jwt.access_token_expire_minutes is high; consider shorter expiration for security", "access_token_expire_minutes", c.JWT.AccessTokenExpireMinutes)
-	}
-	if c.JWT.RefreshTokenExpireDays <= 0 {
-		return fmt.Errorf("jwt.refresh_token_expire_days must be positive")
-	}
-	if c.JWT.RefreshTokenExpireDays > 90 {
-		slog.Warn("jwt.refresh_token_expire_days is high; consider shorter expiration for security", "refresh_token_expire_days", c.JWT.RefreshTokenExpireDays)
-	}
-	if c.JWT.RefreshWindowMinutes < 0 {
-		return fmt.Errorf("jwt.refresh_window_minutes must be non-negative")
-	}
 	if c.Security.CSP.Enabled && strings.TrimSpace(c.Security.CSP.Policy) == "" {
 		return fmt.Errorf("security.csp.policy is required when CSP is enabled")
-	}
-	if c.LinuxDo.Enabled {
-		if strings.TrimSpace(c.LinuxDo.ClientID) == "" {
-			return fmt.Errorf("linuxdo_connect.client_id is required when linuxdo_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.LinuxDo.AuthorizeURL) == "" {
-			return fmt.Errorf("linuxdo_connect.authorize_url is required when linuxdo_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.LinuxDo.TokenURL) == "" {
-			return fmt.Errorf("linuxdo_connect.token_url is required when linuxdo_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.LinuxDo.UserInfoURL) == "" {
-			return fmt.Errorf("linuxdo_connect.userinfo_url is required when linuxdo_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.LinuxDo.RedirectURL) == "" {
-			return fmt.Errorf("linuxdo_connect.redirect_url is required when linuxdo_connect.enabled=true")
-		}
-		method := strings.ToLower(strings.TrimSpace(c.LinuxDo.TokenAuthMethod))
-		switch method {
-		case "", "client_secret_post", "client_secret_basic", "none":
-		default:
-			return fmt.Errorf("linuxdo_connect.token_auth_method must be one of: client_secret_post/client_secret_basic/none")
-		}
-		if (method == "" || method == "client_secret_post" || method == "client_secret_basic") &&
-			strings.TrimSpace(c.LinuxDo.ClientSecret) == "" {
-			return fmt.Errorf("linuxdo_connect.client_secret is required when linuxdo_connect.enabled=true and token_auth_method is client_secret_post/client_secret_basic")
-		}
-		if strings.TrimSpace(c.LinuxDo.FrontendRedirectURL) == "" {
-			return fmt.Errorf("linuxdo_connect.frontend_redirect_url is required when linuxdo_connect.enabled=true")
-		}
-
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.AuthorizeURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.authorize_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.TokenURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.token_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.UserInfoURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.userinfo_url invalid: %w", err)
-		}
-		if err := ValidateAbsoluteHTTPURL(c.LinuxDo.RedirectURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.redirect_url invalid: %w", err)
-		}
-		if err := ValidateFrontendRedirectURL(c.LinuxDo.FrontendRedirectURL); err != nil {
-			return fmt.Errorf("linuxdo_connect.frontend_redirect_url invalid: %w", err)
-		}
-
-		warnIfInsecureURL("linuxdo_connect.authorize_url", c.LinuxDo.AuthorizeURL)
-		warnIfInsecureURL("linuxdo_connect.token_url", c.LinuxDo.TokenURL)
-		warnIfInsecureURL("linuxdo_connect.userinfo_url", c.LinuxDo.UserInfoURL)
-		warnIfInsecureURL("linuxdo_connect.redirect_url", c.LinuxDo.RedirectURL)
-		warnIfInsecureURL("linuxdo_connect.frontend_redirect_url", c.LinuxDo.FrontendRedirectURL)
-	}
-	if c.WeChat.Enabled {
-		weChat := c.WeChat
-		normalizeWeChatConnectConfig(&weChat)
-
-		if weChat.OpenEnabled {
-			if strings.TrimSpace(weChat.OpenAppID) == "" {
-				return fmt.Errorf("wechat_connect.open_app_id is required when wechat_connect.open_enabled=true")
-			}
-			if strings.TrimSpace(weChat.OpenAppSecret) == "" {
-				return fmt.Errorf("wechat_connect.open_app_secret is required when wechat_connect.open_enabled=true")
-			}
-		}
-		if weChat.MPEnabled {
-			if strings.TrimSpace(weChat.MPAppID) == "" {
-				return fmt.Errorf("wechat_connect.mp_app_id is required when wechat_connect.mp_enabled=true")
-			}
-			if strings.TrimSpace(weChat.MPAppSecret) == "" {
-				return fmt.Errorf("wechat_connect.mp_app_secret is required when wechat_connect.mp_enabled=true")
-			}
-		}
-		if weChat.MobileEnabled {
-			if strings.TrimSpace(weChat.MobileAppID) == "" {
-				return fmt.Errorf("wechat_connect.mobile_app_id is required when wechat_connect.mobile_enabled=true")
-			}
-			if strings.TrimSpace(weChat.MobileAppSecret) == "" {
-				return fmt.Errorf("wechat_connect.mobile_app_secret is required when wechat_connect.mobile_enabled=true")
-			}
-		}
-		if v := strings.TrimSpace(weChat.RedirectURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("wechat_connect.redirect_url invalid: %w", err)
-			}
-			warnIfInsecureURL("wechat_connect.redirect_url", v)
-		}
-		if err := ValidateFrontendRedirectURL(weChat.FrontendRedirectURL); err != nil {
-			return fmt.Errorf("wechat_connect.frontend_redirect_url invalid: %w", err)
-		}
-		warnIfInsecureURL("wechat_connect.frontend_redirect_url", weChat.FrontendRedirectURL)
-	}
-	if c.OIDC.Enabled {
-		if strings.TrimSpace(c.OIDC.ClientID) == "" {
-			return fmt.Errorf("oidc_connect.client_id is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.IssuerURL) == "" {
-			return fmt.Errorf("oidc_connect.issuer_url is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.RedirectURL) == "" {
-			return fmt.Errorf("oidc_connect.redirect_url is required when oidc_connect.enabled=true")
-		}
-		if strings.TrimSpace(c.OIDC.FrontendRedirectURL) == "" {
-			return fmt.Errorf("oidc_connect.frontend_redirect_url is required when oidc_connect.enabled=true")
-		}
-		if !scopeContainsOpenID(c.OIDC.Scopes) {
-			return fmt.Errorf("oidc_connect.scopes must contain openid")
-		}
-
-		method := strings.ToLower(strings.TrimSpace(c.OIDC.TokenAuthMethod))
-		switch method {
-		case "", "client_secret_post", "client_secret_basic", "none":
-		default:
-			return fmt.Errorf("oidc_connect.token_auth_method must be one of: client_secret_post/client_secret_basic/none")
-		}
-		if (method == "" || method == "client_secret_post" || method == "client_secret_basic") &&
-			strings.TrimSpace(c.OIDC.ClientSecret) == "" {
-			return fmt.Errorf("oidc_connect.client_secret is required when oidc_connect.enabled=true and token_auth_method is client_secret_post/client_secret_basic")
-		}
-		if c.OIDC.ClockSkewSeconds < 0 || c.OIDC.ClockSkewSeconds > 600 {
-			return fmt.Errorf("oidc_connect.clock_skew_seconds must be between 0 and 600")
-		}
-		if c.OIDC.ValidateIDToken && strings.TrimSpace(c.OIDC.AllowedSigningAlgs) == "" {
-			return fmt.Errorf("oidc_connect.allowed_signing_algs is required when oidc_connect.validate_id_token=true")
-		}
-
-		if err := ValidateAbsoluteHTTPURL(c.OIDC.IssuerURL); err != nil {
-			return fmt.Errorf("oidc_connect.issuer_url invalid: %w", err)
-		}
-		if v := strings.TrimSpace(c.OIDC.DiscoveryURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.discovery_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.AuthorizeURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.authorize_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.TokenURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.token_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.UserInfoURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.userinfo_url invalid: %w", err)
-			}
-		}
-		if v := strings.TrimSpace(c.OIDC.JWKSURL); v != "" {
-			if err := ValidateAbsoluteHTTPURL(v); err != nil {
-				return fmt.Errorf("oidc_connect.jwks_url invalid: %w", err)
-			}
-		}
-		if err := ValidateAbsoluteHTTPURL(c.OIDC.RedirectURL); err != nil {
-			return fmt.Errorf("oidc_connect.redirect_url invalid: %w", err)
-		}
-		if err := ValidateFrontendRedirectURL(c.OIDC.FrontendRedirectURL); err != nil {
-			return fmt.Errorf("oidc_connect.frontend_redirect_url invalid: %w", err)
-		}
-
-		warnIfInsecureURL("oidc_connect.issuer_url", c.OIDC.IssuerURL)
-		warnIfInsecureURL("oidc_connect.discovery_url", c.OIDC.DiscoveryURL)
-		warnIfInsecureURL("oidc_connect.authorize_url", c.OIDC.AuthorizeURL)
-		warnIfInsecureURL("oidc_connect.token_url", c.OIDC.TokenURL)
-		warnIfInsecureURL("oidc_connect.userinfo_url", c.OIDC.UserInfoURL)
-		warnIfInsecureURL("oidc_connect.jwks_url", c.OIDC.JWKSURL)
-		warnIfInsecureURL("oidc_connect.redirect_url", c.OIDC.RedirectURL)
-		warnIfInsecureURL("oidc_connect.frontend_redirect_url", c.OIDC.FrontendRedirectURL)
 	}
 	if c.Billing.CircuitBreaker.Enabled {
 		if c.Billing.CircuitBreaker.FailureThreshold <= 0 {
@@ -3904,9 +3141,6 @@ func (c *Config) Validate() error {
 	if c.Gateway.Grok.FreeQuotaStatsCacheSeconds < 0 {
 		return fmt.Errorf("gateway.grok.free_quota_stats_cache_seconds must be non-negative")
 	}
-	if err := ValidateDingTalkConfig(c.DingTalk); err != nil {
-		return fmt.Errorf("dingtalk_connect: %w", err)
-	}
 	return nil
 }
 
@@ -3923,36 +3157,6 @@ func normalizeStringSlice(values []string) []string {
 		normalized = append(normalized, trimmed)
 	}
 	return normalized
-}
-
-func isWeakJWTSecret(secret string) bool {
-	lower := strings.ToLower(strings.TrimSpace(secret))
-	if lower == "" {
-		return true
-	}
-	weak := map[string]struct{}{
-		"change-me-in-production": {},
-		"changeme":                {},
-		"secret":                  {},
-		"password":                {},
-		"123456":                  {},
-		"12345678":                {},
-		"admin":                   {},
-		"jwt-secret":              {},
-	}
-	_, exists := weak[lower]
-	return exists
-}
-
-func generateJWTSecret(byteLength int) (string, error) {
-	if byteLength <= 0 {
-		byteLength = 32
-	}
-	buf := make([]byte, byteLength)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
 }
 
 // GetServerAddress returns the server address (host:port) from config file or environment variable.
@@ -4002,49 +3206,6 @@ func ValidateAbsoluteHTTPURL(raw string) error {
 		return fmt.Errorf("must not include fragment")
 	}
 	return nil
-}
-
-// ValidateFrontendRedirectURL 验证前端重定向 URL（可以是绝对 URL 或相对路径）
-func ValidateFrontendRedirectURL(raw string) error {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return fmt.Errorf("empty url")
-	}
-	if strings.ContainsAny(raw, "\r\n") {
-		return fmt.Errorf("contains invalid characters")
-	}
-	if strings.HasPrefix(raw, "/") {
-		if strings.HasPrefix(raw, "//") {
-			return fmt.Errorf("must not start with //")
-		}
-		return nil
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return err
-	}
-	if !u.IsAbs() {
-		return fmt.Errorf("must be absolute http(s) url or relative path")
-	}
-	if !isHTTPScheme(u.Scheme) {
-		return fmt.Errorf("unsupported scheme: %s", u.Scheme)
-	}
-	if strings.TrimSpace(u.Host) == "" {
-		return fmt.Errorf("missing host")
-	}
-	if u.Fragment != "" {
-		return fmt.Errorf("must not include fragment")
-	}
-	return nil
-}
-
-func scopeContainsOpenID(scopes string) bool {
-	for _, scope := range strings.Fields(strings.ToLower(strings.TrimSpace(scopes))) {
-		if scope == "openid" {
-			return true
-		}
-	}
-	return false
 }
 
 // isHTTPScheme 检查是否为 HTTP 或 HTTPS 协议
