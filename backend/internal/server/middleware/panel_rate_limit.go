@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +28,7 @@ type panelRateLimitAllower interface {
 // PanelRateLimiter 面板（管理面 /api/v1）API 限流器。
 //
 // 设计要点：
-//   - 认证接口按「用户 ID」维度计数，受限管理密钥按 Key ID 独立计数：与客户端 IP 完全无关，反向代理/共享出口
+//   - 认证接口按「用户 ID」维度计数：与客户端 IP 完全无关，反向代理/共享出口
 //     （所有请求源 IP 坍缩为 127.0.0.1 等）不会互相误伤。
 //   - 公开接口按安全客户端 IP 计数：仅统计全局单播地址，回环/内网/链路本地
 //     地址（反代内部转发地址）直接跳过，避免误拦整条反代链路的流量。
@@ -49,15 +48,8 @@ func NewPanelRateLimiter(redisClient *redis.Client, settingService *service.Sett
 }
 
 // Global 认证面板接口的全局按用户限流（宽松档，覆盖所有登录后端点）。
-// 受限管理密钥不享管理员豁免，变更类请求额外消耗严格档额度。
 func (p *PanelRateLimiter) Global() gin.HandlerFunc {
 	return p.userScoped("global", func(s service.PanelRateLimitSettings) int { return s.UserRPM })
-}
-
-// MCPTransport bounds protocol requests, including discovery, separately from
-// the global budget charged by each dispatched management operation.
-func (p *PanelRateLimiter) MCPTransport() gin.HandlerFunc {
-	return p.userScoped("mcp", func(s service.PanelRateLimitSettings) int { return s.UserRPM })
 }
 
 // Heavy 重查询接口的按用户限流（严格档，覆盖 usage/dashboard 等聚合统计端点）。
@@ -83,8 +75,8 @@ func (p *PanelRateLimiter) userScoped(scope string, limitOf func(service.PanelRa
 			c.Next()
 			return
 		}
-		principal := adminaccess.FromContext(c.Request.Context())
-		if settings.ExemptAdmin && principal == nil {
+
+		if settings.ExemptAdmin {
 			if role, hasRole := GetUserRoleFromContext(c); hasRole && role == service.RoleAdmin {
 				c.Next()
 				return
@@ -92,26 +84,20 @@ func (p *PanelRateLimiter) userScoped(scope string, limitOf func(service.PanelRa
 		}
 
 		identity := "user:" + strconv.FormatInt(subject.UserID, 10)
-		if principal != nil {
-			identity = "admin-key:" + principal.KeyID
-		}
+
 		type rateLimitCheck struct {
 			scope string
 			limit int
 		}
 		checks := []rateLimitCheck{{scope, limitOf(settings)}}
-		if scope == "global" && principal != nil && c.Request.Method != http.MethodGet &&
-			c.Request.Method != http.MethodHead && c.Request.Method != http.MethodOptions {
-			checks = append(checks, rateLimitCheck{"heavy", settings.HeavyRPM})
-		}
+
 		for _, check := range checks {
-			if check.limit <= 0 || (principal != nil && check.scope == "heavy" && c.GetBool(panelHeavyRateLimitChecked)) {
+			if check.limit <= 0 {
 				continue
 			}
-			if principal != nil && check.scope == "heavy" {
-				// Global 已为受限密钥写入计数，路由再挂 Heavy 时不能重复消耗额度。
-				c.Set(panelHeavyRateLimitChecked, true)
-			}
+
+			// Global 已为受限密钥写入计数，路由再挂 Heavy 时不能重复消耗额度。
+
 			key := "panel:" + check.scope + ":" + identity
 			result, err := p.limiter.Allow(c.Request.Context(), key, check.limit, panelRateLimitWindow)
 			if err != nil {

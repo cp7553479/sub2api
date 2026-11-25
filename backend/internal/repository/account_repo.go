@@ -25,7 +25,6 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -1969,9 +1968,7 @@ func (r *accountRepository) BindGroups(ctx context.Context, accountID int64, gro
 	if scoped := r.accountTransactionScope(ctx); scoped != r {
 		return scoped.BindGroups(ctx, accountID, groupIDs)
 	}
-	if adminaccess.RestrictedFromContext(ctx) != nil {
-		return r.scopedAdminBindGroups(ctx, accountID, groupIDs)
-	}
+
 	existingGroupIDs, err := r.loadAccountGroupIDs(ctx, accountID)
 	if err != nil {
 		return err

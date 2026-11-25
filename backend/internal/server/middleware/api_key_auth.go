@@ -9,6 +9,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -113,6 +114,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			if errors.Is(err, service.ErrAPIKeyAuthOverloaded) {
 				MarkIngressRejected(c, IngressRejectAPIKeyAuthOverloaded)
 				AbortWithError(c, http.StatusServiceUnavailable, "API_KEY_AUTH_OVERLOADED", "API key authentication is temporarily unavailable")
+				return
+			}
+			if status := infraerrors.Code(err); status == 401 || status == 403 || status == 503 {
+				AbortWithError(c, status, infraerrors.Reason(err), infraerrors.Message(err))
 				return
 			}
 			if abortIfAPIKeyLookupClientGone(c, err) {

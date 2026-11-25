@@ -877,7 +877,7 @@ func TestExecuteBalanceFulfillmentRecoversAfterRedeemWithoutCreditingAgain(t *te
 	require.NoError(t, err)
 
 	usedBy := order.UserID
-	redeemRepo := &redeemCodeRepoStub{codesByCode: map[string]*RedeemCode{
+	redeemRepo := &redeemRepositoryFixture{codesByCode: map[string]*RedeemCode{
 		order.RechargeCode: {
 			ID:     101,
 			Code:   order.RechargeCode,
@@ -911,7 +911,7 @@ func TestDuplicatePaymentNotificationDoesNotReprocessCompletedBalanceOrder(t *te
 		Save(ctx)
 	require.NoError(t, err)
 
-	redeemRepo := &redeemCodeRepoStub{codesByCode: map[string]*RedeemCode{
+	redeemRepo := &redeemRepositoryFixture{codesByCode: map[string]*RedeemCode{
 		order.RechargeCode: {
 			ID:     102,
 			Code:   order.RechargeCode,
@@ -979,7 +979,7 @@ func TestExecuteBalanceFulfillmentRejectsCodeUsedByAnotherUser(t *testing.T) {
 	require.NoError(t, err)
 
 	otherUserID := order.UserID + 1
-	redeemRepo := &redeemCodeRepoStub{codesByCode: map[string]*RedeemCode{
+	redeemRepo := &redeemRepositoryFixture{codesByCode: map[string]*RedeemCode{
 		order.RechargeCode: {
 			ID:     101,
 			Code:   order.RechargeCode,

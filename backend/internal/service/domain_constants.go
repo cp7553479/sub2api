@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
@@ -202,47 +200,29 @@ const (
 	SubscriptionStatusRevoked = "revoked"
 )
 
-// LinuxDoConnectSyntheticEmailDomain 是 LinuxDo Connect 用户的合成邮箱后缀（RFC 保留域名）。
-const LinuxDoConnectSyntheticEmailDomain = "@linuxdo-connect.invalid"
-
-// OIDCConnectSyntheticEmailDomain 是 OIDC 用户的合成邮箱后缀（RFC 保留域名）。
-const OIDCConnectSyntheticEmailDomain = "@oidc-connect.invalid"
-
-// WeChatConnectSyntheticEmailDomain 是 WeChat Connect 用户的合成邮箱后缀（RFC 保留域名）。
-const WeChatConnectSyntheticEmailDomain = "@wechat-connect.invalid"
-
-// DingTalkConnectSyntheticEmailDomain 是 DingTalk Connect 用户的合成邮箱后缀（RFC 保留域名）。
-const DingTalkConnectSyntheticEmailDomain = "@dingtalk-connect.invalid"
-
 // Setting keys
 const (
-	// 注册设置
-	SettingKeyRegistrationEnabled              = "registration_enabled"                // 是否开放注册
-	SettingKeyEmailVerifyEnabled               = "email_verify_enabled"                // 是否开启邮件验证
-	SettingKeyRegistrationEmailSuffixWhitelist = "registration_email_suffix_whitelist" // 注册邮箱后缀白名单（JSON 数组）
-	// 白名单非空时，是否放行非白名单域名按主域名限量注册（每域名 1 个账户）。
+	// 是否开启邮件验证
 	// 默认 false：非白名单域名直接拒绝（白名单严格模式）。
-	SettingKeyRegistrationEmailDomainQuotaEnabled = "registration_email_domain_quota_enabled"
-	SettingKeyRegistrationEmailBlacklist          = "registration_email_blacklist"     // 注册邮箱精确黑名单（JSON 数组，按收件箱身份匹配；不进 SystemSettings，由专用接口读写）
-	SettingKeyPromoCodeEnabled                    = "promo_code_enabled"               // 是否启用优惠码功能
-	SettingKeyPasswordResetEnabled                = "password_reset_enabled"           // 是否启用忘记密码功能（需要先开启邮件验证）
-	SettingKeyFrontendURL                         = "frontend_url"                     // 前端基础URL，用于生成邮件中的重置密码链接
-	SettingKeyInvitationCodeEnabled               = "invitation_code_enabled"          // 是否启用邀请码注册
-	SettingKeyAffiliateEnabled                    = "affiliate_enabled"                // 邀请返利功能总开关
-	SettingKeyAffiliateRebateRate                 = "affiliate_rebate_rate"            // 邀请返利比例（百分比，0-100）
-	SettingKeyAffiliateRebateFreezeHours          = "affiliate_rebate_freeze_hours"    // 返利冻结期（小时，0=不冻结）
-	SettingKeyAffiliateRebateDurationDays         = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
-	SettingKeyAffiliateRebatePerInviteeCap        = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
-	SettingKeyAffiliateAdminRechargeEnabled       = "affiliate_admin_recharge_enabled" // 管理员充值是否产生返利
-	SettingKeyRiskControlEnabled                  = "risk_control_enabled"             // 是否启用风控中心入口与审计链路
-	SettingKeyContentModerationConfig             = "content_moderation_config"        // 内容审计配置（JSON）
-	SettingKeyCyberSessionBlockEnabled            = "cyber_session_block_enabled"      // cyber 命中后会话级自动屏蔽总开关(默认关)
-	SettingKeyCyberPolicyUserAllowlist            = "cyber_policy_user_allowlist"      // Platform user IDs with log-only cyber handling
-	SettingKeyCyberSessionBlockTTLSeconds         = "cyber_session_block_ttl_seconds"  // 会话屏蔽 TTL 秒数(默认 3600)
-	SettingKeyLoginAgreementEnabled               = "login_agreement_enabled"          // 登录前是否要求同意条款
-	SettingKeyLoginAgreementMode                  = "login_agreement_mode"             // 条款确认展示模式：modal / checkbox
-	SettingKeyLoginAgreementUpdatedAt             = "login_agreement_updated_at"       // 条款更新日期（展示用）
-	SettingKeyLoginAgreementDocuments             = "login_agreement_documents"        // 条款文档列表（JSON，Markdown 内容）
+
+	// 是否启用优惠码功能
+	// 是否启用忘记密码功能（需要先开启邮件验证）
+	// 前端基础URL，用于生成邮件中的重置密码链接
+	SettingKeyAffiliateEnabled              = "affiliate_enabled"                // 邀请返利功能总开关
+	SettingKeyAffiliateRebateRate           = "affiliate_rebate_rate"            // 邀请返利比例（百分比，0-100）
+	SettingKeyAffiliateRebateFreezeHours    = "affiliate_rebate_freeze_hours"    // 返利冻结期（小时，0=不冻结）
+	SettingKeyAffiliateRebateDurationDays   = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
+	SettingKeyAffiliateRebatePerInviteeCap  = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
+	SettingKeyAffiliateAdminRechargeEnabled = "affiliate_admin_recharge_enabled" // 管理员充值是否产生返利
+	SettingKeyRiskControlEnabled            = "risk_control_enabled"             // 是否启用风控中心入口与审计链路
+	SettingKeyContentModerationConfig       = "content_moderation_config"        // 内容审计配置（JSON）
+	SettingKeyCyberSessionBlockEnabled      = "cyber_session_block_enabled"      // cyber 命中后会话级自动屏蔽总开关(默认关)
+	SettingKeyCyberPolicyUserAllowlist      = "cyber_policy_user_allowlist"      // Platform user IDs with log-only cyber handling
+	SettingKeyCyberSessionBlockTTLSeconds   = "cyber_session_block_ttl_seconds"  // 会话屏蔽 TTL 秒数(默认 3600)
+	SettingKeyLoginAgreementEnabled         = "login_agreement_enabled"          // 登录前是否要求同意条款
+	SettingKeyLoginAgreementMode            = "login_agreement_mode"             // 条款确认展示模式：modal / checkbox
+	SettingKeyLoginAgreementUpdatedAt       = "login_agreement_updated_at"       // 条款更新日期（展示用）
+	SettingKeyLoginAgreementDocuments       = "login_agreement_documents"        // 条款文档列表（JSON，Markdown 内容）
 
 	// 邮件服务设置
 	SettingKeySMTPHost     = "smtp_host"      // SMTP服务器地址
@@ -253,41 +233,20 @@ const (
 	SettingKeySMTPFromName = "smtp_from_name" // 发件人名称
 	SettingKeySMTPUseTLS   = "smtp_use_tls"   // 是否使用TLS
 
-	// Cloudflare Turnstile 设置
-	SettingKeyTurnstileEnabled   = "turnstile_enabled"    // 是否启用 Turnstile 验证
-	SettingKeyTurnstileSiteKey   = "turnstile_site_key"   // Turnstile Site Key
-	SettingKeyTurnstileSecretKey = "turnstile_secret_key" // Turnstile Secret Key
+	// 站点："cn"|"intl"，决定前端 SDK 脚本与服务端接入点
 
-	// 腾讯天御验证码设置
-	SettingKeyTencentCaptchaEnabled        = "tencent_captcha_enabled"
-	SettingKeyTencentCaptchaAppID          = "tencent_captcha_app_id"
-	SettingKeyTencentCaptchaAppSecretKey   = "tencent_captcha_app_secret_key"
-	SettingKeyTencentCaptchaCloudSecretID  = "tencent_captcha_cloud_secret_id"
-	SettingKeyTencentCaptchaCloudSecretKey = "tencent_captcha_cloud_secret_key"
-	SettingKeyTencentCaptchaRegion         = "tencent_captcha_region" // 站点："cn"|"intl"，决定前端 SDK 脚本与服务端接入点
-
-	// 阿里云验证码 2.0 设置（与 Turnstile、腾讯天御互斥，同一时间仅可启用一家）
-	SettingKeyAliyunCaptchaEnabled         = "aliyun_captcha_enabled"           // 是否启用阿里云验证码
-	SettingKeyAliyunCaptchaAccessKeyID     = "aliyun_captcha_access_key_id"     // 阿里云 AccessKey ID
-	SettingKeyAliyunCaptchaAccessKeySecret = "aliyun_captcha_access_key_secret" // 阿里云 AccessKey Secret
-	SettingKeyAliyunCaptchaSceneID         = "aliyun_captcha_scene_id"          // 验证场景 ID（所有认证流程共用）
-	SettingKeyAliyunCaptchaPrefix          = "aliyun_captcha_prefix"            // 身份标，前端 SDK 初始化用
-	SettingKeyAliyunCaptchaRegion          = "aliyun_captcha_region"            // 地域："cn"|"sgp"，决定前端脚本区域与服务端接入点
+	// 阿里云 AccessKey ID
+	// 阿里云 AccessKey Secret
+	// 验证场景 ID（所有认证流程共用）
+	// 身份标，前端 SDK 初始化用
+	// 地域："cn"|"sgp"，决定前端脚本区域与服务端接入点
 
 	// API Key IP 访问控制设置
 	SettingKeyAPIKeyACLTrustForwardedIP = "api_key_acl_trust_forwarded_ip" // API Key IP 白/黑名单是否信任转发 IP
 	SettingKeyForwardedClientIPHeaders  = "forwarded_client_ip_headers"    // 自定义 CDN 客户端 IP 请求头（JSON 数组）
 	settingKeyForwardedClientIPModeV2   = "forwarded_client_ip_mode_v2_migrated"
 
-	// TOTP 双因素认证设置
-	SettingKeyTotpEnabled    = "totp_enabled"    // 是否启用 TOTP 2FA 功能
-	SettingKeyPasskeyEnabled = "passkey_enabled" // 是否启用 Passkey 登录（仍要求有效的 WebAuthn 部署配置）
-
 	// 会话安全设置
-	SettingKeySessionBindingEnabled = "session_binding_enabled" // 会话 IP/UA 绑定（变更即失效），默认关闭
-
-	// 敏感操作 step-up 2FA 设置
-	SettingKeyStepUpEnabled = "step_up_enabled" // 敏感操作（导出/备份/S3配置/提升管理员等）要求 step-up 2FA，默认关闭
 
 	// 面板 API 限流设置（JSON：PanelRateLimitSettings）
 	SettingKeyPanelRateLimitSettings = "panel_rate_limit_settings"
@@ -295,83 +254,14 @@ const (
 	// 操作审计日志设置
 	SettingKeyAuditLogRetentionDays = "audit_log_retention_days" // 审计日志保留天数（<=0 永久保留），默认 180
 
-	// LinuxDo Connect OAuth 登录设置
-	SettingKeyLinuxDoConnectEnabled      = "linuxdo_connect_enabled"
-	SettingKeyLinuxDoConnectClientID     = "linuxdo_connect_client_id"
-	SettingKeyLinuxDoConnectClientSecret = "linuxdo_connect_client_secret"
-	SettingKeyLinuxDoConnectRedirectURL  = "linuxdo_connect_redirect_url"
+	// WeChat MP payment authorization设置
 
-	// DingTalk Connect OAuth 登录设置
-	SettingKeyDingTalkConnectEnabled                 = "dingtalk_connect_enabled"
-	SettingKeyDingTalkConnectClientID                = "dingtalk_connect_client_id"
-	SettingKeyDingTalkConnectClientSecret            = "dingtalk_connect_client_secret"
-	SettingKeyDingTalkConnectRedirectURL             = "dingtalk_connect_redirect_url"
-	SettingKeyDingTalkConnectCorpRestrictionPolicy   = "dingtalk_connect_corp_restriction_policy"
-	SettingKeyDingTalkConnectInternalCorpID          = "dingtalk_connect_internal_corp_id"
-	SettingKeyDingTalkConnectBypassRegistration      = "dingtalk_connect_bypass_registration"
-	SettingKeyDingTalkConnectSyncCorpEmail           = "dingtalk_connect_sync_corp_email"
-	SettingKeyDingTalkConnectSyncDisplayName         = "dingtalk_connect_sync_display_name"
-	SettingKeyDingTalkConnectSyncDept                = "dingtalk_connect_sync_dept"
-	SettingKeyDingTalkConnectSyncCorpEmailAttrKey    = "dingtalk_connect_sync_corp_email_attr_key"
-	SettingKeyDingTalkConnectSyncDisplayNameAttrKey  = "dingtalk_connect_sync_display_name_attr_key"
-	SettingKeyDingTalkConnectSyncDeptAttrKey         = "dingtalk_connect_sync_dept_attr_key"
-	SettingKeyDingTalkConnectSyncCorpEmailAttrName   = "dingtalk_connect_sync_corp_email_attr_name"
-	SettingKeyDingTalkConnectSyncDisplayNameAttrName = "dingtalk_connect_sync_display_name_attr_name"
-	SettingKeyDingTalkConnectSyncDeptAttrName        = "dingtalk_connect_sync_dept_attr_name"
+	SettingKeyWeChatConnectMPAppID     = "wechat_connect_mp_app_id"
+	SettingKeyWeChatConnectMPAppSecret = "wechat_connect_mp_app_secret"
 
-	// WeChat Connect OAuth 登录设置
-	SettingKeyWeChatConnectEnabled             = "wechat_connect_enabled"
-	SettingKeyWeChatConnectAppID               = "wechat_connect_app_id"
-	SettingKeyWeChatConnectAppSecret           = "wechat_connect_app_secret"
-	SettingKeyWeChatConnectOpenAppID           = "wechat_connect_open_app_id"
-	SettingKeyWeChatConnectOpenAppSecret       = "wechat_connect_open_app_secret"
-	SettingKeyWeChatConnectMPAppID             = "wechat_connect_mp_app_id"
-	SettingKeyWeChatConnectMPAppSecret         = "wechat_connect_mp_app_secret"
-	SettingKeyWeChatConnectMobileAppID         = "wechat_connect_mobile_app_id"
-	SettingKeyWeChatConnectMobileAppSecret     = "wechat_connect_mobile_app_secret"
-	SettingKeyWeChatConnectOpenEnabled         = "wechat_connect_open_enabled"
-	SettingKeyWeChatConnectMPEnabled           = "wechat_connect_mp_enabled"
-	SettingKeyWeChatConnectMobileEnabled       = "wechat_connect_mobile_enabled"
-	SettingKeyWeChatConnectMode                = "wechat_connect_mode"
-	SettingKeyWeChatConnectScopes              = "wechat_connect_scopes"
-	SettingKeyWeChatConnectRedirectURL         = "wechat_connect_redirect_url"
-	SettingKeyWeChatConnectFrontendRedirectURL = "wechat_connect_frontend_redirect_url"
-
-	// Generic OIDC OAuth 登录设置
-	SettingKeyOIDCConnectEnabled              = "oidc_connect_enabled"
-	SettingKeyOIDCConnectProviderName         = "oidc_connect_provider_name"
-	SettingKeyOIDCConnectClientID             = "oidc_connect_client_id"
-	SettingKeyOIDCConnectClientSecret         = "oidc_connect_client_secret"
-	SettingKeyOIDCConnectIssuerURL            = "oidc_connect_issuer_url"
-	SettingKeyOIDCConnectDiscoveryURL         = "oidc_connect_discovery_url"
-	SettingKeyOIDCConnectAuthorizeURL         = "oidc_connect_authorize_url"
-	SettingKeyOIDCConnectTokenURL             = "oidc_connect_token_url"
-	SettingKeyOIDCConnectUserInfoURL          = "oidc_connect_userinfo_url"
-	SettingKeyOIDCConnectJWKSURL              = "oidc_connect_jwks_url"
-	SettingKeyOIDCConnectScopes               = "oidc_connect_scopes"
-	SettingKeyOIDCConnectRedirectURL          = "oidc_connect_redirect_url"
-	SettingKeyOIDCConnectFrontendRedirectURL  = "oidc_connect_frontend_redirect_url"
-	SettingKeyOIDCConnectTokenAuthMethod      = "oidc_connect_token_auth_method"
-	SettingKeyOIDCConnectUsePKCE              = "oidc_connect_use_pkce"
-	SettingKeyOIDCConnectValidateIDToken      = "oidc_connect_validate_id_token"
-	SettingKeyOIDCConnectAllowedSigningAlgs   = "oidc_connect_allowed_signing_algs"
-	SettingKeyOIDCConnectClockSkewSeconds     = "oidc_connect_clock_skew_seconds"
-	SettingKeyOIDCConnectRequireEmailVerified = "oidc_connect_require_email_verified"
-	SettingKeyOIDCConnectUserInfoEmailPath    = "oidc_connect_userinfo_email_path"
-	SettingKeyOIDCConnectUserInfoIDPath       = "oidc_connect_userinfo_id_path"
-	SettingKeyOIDCConnectUserInfoUsernamePath = "oidc_connect_userinfo_username_path"
+	SettingKeyWeChatConnectMPEnabled = "wechat_connect_mp_enabled"
 
 	// GitHub / Google 邮箱快捷登录设置
-	SettingKeyGitHubOAuthEnabled             = "github_oauth_enabled"
-	SettingKeyGitHubOAuthClientID            = "github_oauth_client_id"
-	SettingKeyGitHubOAuthClientSecret        = "github_oauth_client_secret"
-	SettingKeyGitHubOAuthRedirectURL         = "github_oauth_redirect_url"
-	SettingKeyGitHubOAuthFrontendRedirectURL = "github_oauth_frontend_redirect_url"
-	SettingKeyGoogleOAuthEnabled             = "google_oauth_enabled"
-	SettingKeyGoogleOAuthClientID            = "google_oauth_client_id"
-	SettingKeyGoogleOAuthClientSecret        = "google_oauth_client_secret"
-	SettingKeyGoogleOAuthRedirectURL         = "google_oauth_redirect_url"
-	SettingKeyGoogleOAuthFrontendRedirectURL = "google_oauth_frontend_redirect_url"
 
 	// OEM设置
 	SettingKeySiteName                    = "site_name"                     // 网站名称
@@ -391,51 +281,15 @@ const (
 	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
 
 	// 默认配置
-	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量
-	SettingKeyDefaultBalance       = "default_balance"        // 新用户默认余额
-	SettingKeyDefaultSubscriptions = "default_subscriptions"  // 新用户默认订阅列表（JSON）
-	SettingKeyDefaultUserRPMLimit  = "default_user_rpm_limit" // 新用户默认 RPM 限制（0 = 不限制）
+	// 新用户默认并发量
+	// 新用户默认余额
+	// 新用户默认订阅列表（JSON）
+	// 新用户默认 RPM 限制（0 = 不限制）
 
 	// 第三方认证来源默认授予配置
-	SettingKeyAuthSourceDefaultEmailBalance             = "auth_source_default_email_balance"
-	SettingKeyAuthSourceDefaultEmailConcurrency         = "auth_source_default_email_concurrency"
-	SettingKeyAuthSourceDefaultEmailSubscriptions       = "auth_source_default_email_subscriptions"
-	SettingKeyAuthSourceDefaultEmailGrantOnSignup       = "auth_source_default_email_grant_on_signup"
-	SettingKeyAuthSourceDefaultEmailGrantOnFirstBind    = "auth_source_default_email_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultLinuxDoBalance           = "auth_source_default_linuxdo_balance"
-	SettingKeyAuthSourceDefaultLinuxDoConcurrency       = "auth_source_default_linuxdo_concurrency"
-	SettingKeyAuthSourceDefaultLinuxDoSubscriptions     = "auth_source_default_linuxdo_subscriptions"
-	SettingKeyAuthSourceDefaultLinuxDoGrantOnSignup     = "auth_source_default_linuxdo_grant_on_signup"
-	SettingKeyAuthSourceDefaultLinuxDoGrantOnFirstBind  = "auth_source_default_linuxdo_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultOIDCBalance              = "auth_source_default_oidc_balance"
-	SettingKeyAuthSourceDefaultOIDCConcurrency          = "auth_source_default_oidc_concurrency"
-	SettingKeyAuthSourceDefaultOIDCSubscriptions        = "auth_source_default_oidc_subscriptions"
-	SettingKeyAuthSourceDefaultOIDCGrantOnSignup        = "auth_source_default_oidc_grant_on_signup"
-	SettingKeyAuthSourceDefaultOIDCGrantOnFirstBind     = "auth_source_default_oidc_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultWeChatBalance            = "auth_source_default_wechat_balance"
-	SettingKeyAuthSourceDefaultWeChatConcurrency        = "auth_source_default_wechat_concurrency"
-	SettingKeyAuthSourceDefaultWeChatSubscriptions      = "auth_source_default_wechat_subscriptions"
-	SettingKeyAuthSourceDefaultWeChatGrantOnSignup      = "auth_source_default_wechat_grant_on_signup"
-	SettingKeyAuthSourceDefaultWeChatGrantOnFirstBind   = "auth_source_default_wechat_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultGitHubBalance            = "auth_source_default_github_balance"
-	SettingKeyAuthSourceDefaultGitHubConcurrency        = "auth_source_default_github_concurrency"
-	SettingKeyAuthSourceDefaultGitHubSubscriptions      = "auth_source_default_github_subscriptions"
-	SettingKeyAuthSourceDefaultGitHubGrantOnSignup      = "auth_source_default_github_grant_on_signup"
-	SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind   = "auth_source_default_github_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultGoogleBalance            = "auth_source_default_google_balance"
-	SettingKeyAuthSourceDefaultGoogleConcurrency        = "auth_source_default_google_concurrency"
-	SettingKeyAuthSourceDefaultGoogleSubscriptions      = "auth_source_default_google_subscriptions"
-	SettingKeyAuthSourceDefaultGoogleGrantOnSignup      = "auth_source_default_google_grant_on_signup"
-	SettingKeyAuthSourceDefaultGoogleGrantOnFirstBind   = "auth_source_default_google_grant_on_first_bind"
-	SettingKeyAuthSourceDefaultDingTalkBalance          = "auth_source_default_dingtalk_balance"
-	SettingKeyAuthSourceDefaultDingTalkConcurrency      = "auth_source_default_dingtalk_concurrency"
-	SettingKeyAuthSourceDefaultDingTalkSubscriptions    = "auth_source_default_dingtalk_subscriptions"
-	SettingKeyAuthSourceDefaultDingTalkGrantOnSignup    = "auth_source_default_dingtalk_grant_on_signup"
-	SettingKeyAuthSourceDefaultDingTalkGrantOnFirstBind = "auth_source_default_dingtalk_grant_on_first_bind"
-	SettingKeyForceEmailOnThirdPartySignup              = "force_email_on_third_party_signup"
 
 	// 管理员 API Key
-	SettingKeyAdminAPIKey = "admin_api_key" // 全局管理员 API Key（用于外部系统集成）
+	// 全局管理员 API Key（用于外部系统集成）
 
 	// Gemini 配额策略（JSON）
 	SettingKeyGeminiQuotaPolicy = "gemini_quota_policy"
@@ -745,21 +599,14 @@ const SettingKeyDefaultPlatformQuotas = "default_platform_quotas"
 // 值为 map[platform]percent，1..100；100 = 禁用该平台自动停调。
 const SettingKeyAccountSchedulingThresholds = "account_scheduling_thresholds"
 
-// SettingKeyAuthSourcePlatformQuotas 返回某 auth source 的 platform quota JSON key。
-// 形如 auth_source_default_{source}_platform_quotas
-func SettingKeyAuthSourcePlatformQuotas(source string) string {
-	return fmt.Sprintf("auth_source_default_%s_platform_quotas", source)
-}
-
 // QuotaDimension constants for spark shadow accounts.
 const (
 	QuotaDimensionGlobal = "global"
 	QuotaDimensionSpark  = "spark"
 )
 
-// AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).
-const AdminAPIKeyPrefix = "admin-"
-
 // SettingKeyAllowUserViewErrorRequests controls whether end users can view
 // their own failed requests on the usage page. Default false (opt-in).
 const SettingKeyAllowUserViewErrorRequests = "allow_user_view_error_requests"
+
+const SettingKeyFrontendURL = "frontend_url"

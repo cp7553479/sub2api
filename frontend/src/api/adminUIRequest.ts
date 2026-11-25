@@ -42,11 +42,7 @@ export function isUserTimingAPIPath(requestURL: string): boolean {
   const path = normalizeAPIPath(requestURL)
   if (!path) return false
 
-  if (
-    path === '/auth/me' ||
-    path === '/auth/revoke-all-sessions' ||
-    path === '/auth/oauth/bind-token'
-  ) {
+  if (path === '/auth/me') {
     return true
   }
   if (path === '/user' || path.startsWith('/user/')) return true

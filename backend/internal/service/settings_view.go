@@ -12,23 +12,13 @@ func firstNonEmpty(values ...string) string {
 }
 
 type SystemSettings struct {
-	RegistrationEnabled                 bool
-	EmailVerifyEnabled                  bool
-	RegistrationEmailSuffixWhitelist    []string
-	RegistrationEmailDomainQuotaEnabled bool // 白名单非空时放行非白名单域名限量注册（默认关闭）
-	PromoCodeEnabled                    bool
-	PasswordResetEnabled                bool
-	FrontendURL                         string
-	InvitationCodeEnabled               bool
-	TotpEnabled                         bool // TOTP 双因素认证
-	PasskeyEnabled                      bool // Passkey 登录
-	SessionBindingEnabled               bool // 会话 IP/UA 绑定（变更即失效）
-	StepUpEnabled                       bool // 敏感操作 step-up 2FA 门控
-	AuditLogRetentionDays               int  // 审计日志保留天数（<=0 永久保留）
-	LoginAgreementEnabled               bool
-	LoginAgreementMode                  string
-	LoginAgreementUpdatedAt             string
-	LoginAgreementDocuments             []LoginAgreementDocument
+	FrontendURL string
+
+	AuditLogRetentionDays   int // 审计日志保留天数（<=0 永久保留）
+	LoginAgreementEnabled   bool
+	LoginAgreementMode      string
+	LoginAgreementUpdatedAt string
+	LoginAgreementDocuments []LoginAgreementDocument
 
 	SMTPHost               string
 	SMTPPort               int
@@ -39,115 +29,18 @@ type SystemSettings struct {
 	SMTPFromName           string
 	SMTPUseTLS             bool
 
-	TurnstileEnabled                       bool
-	TurnstileSiteKey                       string
-	TurnstileSecretKey                     string
-	TurnstileSecretKeyConfigured           bool
-	TencentCaptchaEnabled                  bool
-	TencentCaptchaAppID                    string
-	TencentCaptchaAppSecretKey             string
-	TencentCaptchaAppSecretKeyConfigured   bool
-	TencentCaptchaCloudSecretID            string
-	TencentCaptchaCloudSecretIDConfigured  bool
-	TencentCaptchaCloudSecretKey           string
-	TencentCaptchaCloudSecretKeyConfigured bool
-	TencentCaptchaRegion                   string
-	AliyunCaptchaEnabled                   bool
-	AliyunCaptchaAccessKeyID               string
-	AliyunCaptchaAccessKeySecret           string
-	AliyunCaptchaAccessKeySecretConfigured bool
-	AliyunCaptchaSceneID                   string
-	AliyunCaptchaPrefix                    string
-	AliyunCaptchaRegion                    string
-	APIKeyACLTrustForwardedIP              bool
-	ForwardedClientIPHeaders               []string
+	APIKeyACLTrustForwardedIP bool
+	ForwardedClientIPHeaders  []string
 
-	// LinuxDo Connect OAuth 登录
-	LinuxDoConnectEnabled                bool
-	LinuxDoConnectClientID               string
-	LinuxDoConnectClientSecret           string
-	LinuxDoConnectClientSecretConfigured bool
-	LinuxDoConnectRedirectURL            string
+	// WeChat MP payment authorization
 
-	// DingTalk Connect OAuth 登录
-	DingTalkConnectEnabled                 bool
-	DingTalkConnectClientID                string
-	DingTalkConnectClientSecret            string
-	DingTalkConnectClientSecretConfigured  bool
-	DingTalkConnectRedirectURL             string
-	DingTalkConnectCorpRestrictionPolicy   string
-	DingTalkConnectInternalCorpID          string
-	DingTalkConnectBypassRegistration      bool
-	DingTalkConnectSyncCorpEmail           bool
-	DingTalkConnectSyncDisplayName         bool
-	DingTalkConnectSyncDept                bool
-	DingTalkConnectSyncCorpEmailAttrKey    string
-	DingTalkConnectSyncDisplayNameAttrKey  string
-	DingTalkConnectSyncDeptAttrKey         string
-	DingTalkConnectSyncCorpEmailAttrName   string
-	DingTalkConnectSyncDisplayNameAttrName string
-	DingTalkConnectSyncDeptAttrName        string
+	WeChatConnectMPAppID               string
+	WeChatConnectMPAppSecret           string
+	WeChatConnectMPAppSecretConfigured bool
 
-	// WeChat Connect OAuth 登录
-	WeChatConnectEnabled                   bool
-	WeChatConnectAppID                     string
-	WeChatConnectAppSecret                 string
-	WeChatConnectAppSecretConfigured       bool
-	WeChatConnectOpenAppID                 string
-	WeChatConnectOpenAppSecret             string
-	WeChatConnectOpenAppSecretConfigured   bool
-	WeChatConnectMPAppID                   string
-	WeChatConnectMPAppSecret               string
-	WeChatConnectMPAppSecretConfigured     bool
-	WeChatConnectMobileAppID               string
-	WeChatConnectMobileAppSecret           string
-	WeChatConnectMobileAppSecretConfigured bool
-	WeChatConnectOpenEnabled               bool
-	WeChatConnectMPEnabled                 bool
-	WeChatConnectMobileEnabled             bool
-	WeChatConnectMode                      string
-	WeChatConnectScopes                    string
-	WeChatConnectRedirectURL               string
-	WeChatConnectFrontendRedirectURL       string
-
-	// Generic OIDC OAuth 登录
-	OIDCConnectEnabled                bool
-	OIDCConnectProviderName           string
-	OIDCConnectClientID               string
-	OIDCConnectClientSecret           string
-	OIDCConnectClientSecretConfigured bool
-	OIDCConnectIssuerURL              string
-	OIDCConnectDiscoveryURL           string
-	OIDCConnectAuthorizeURL           string
-	OIDCConnectTokenURL               string
-	OIDCConnectUserInfoURL            string
-	OIDCConnectJWKSURL                string
-	OIDCConnectScopes                 string
-	OIDCConnectRedirectURL            string
-	OIDCConnectFrontendRedirectURL    string
-	OIDCConnectTokenAuthMethod        string
-	OIDCConnectUsePKCE                bool
-	OIDCConnectValidateIDToken        bool
-	OIDCConnectAllowedSigningAlgs     string
-	OIDCConnectClockSkewSeconds       int
-	OIDCConnectRequireEmailVerified   bool
-	OIDCConnectUserInfoEmailPath      string
-	OIDCConnectUserInfoIDPath         string
-	OIDCConnectUserInfoUsernamePath   string
+	WeChatConnectMPEnabled bool
 
 	// GitHub / Google 邮箱快捷登录
-	GitHubOAuthEnabled                bool
-	GitHubOAuthClientID               string
-	GitHubOAuthClientSecret           string
-	GitHubOAuthClientSecretConfigured bool
-	GitHubOAuthRedirectURL            string
-	GitHubOAuthFrontendRedirectURL    string
-	GoogleOAuthEnabled                bool
-	GoogleOAuthClientID               string
-	GoogleOAuthClientSecret           string
-	GoogleOAuthClientSecretConfigured bool
-	GoogleOAuthRedirectURL            string
-	GoogleOAuthFrontendRedirectURL    string
 
 	SiteName                    string
 	SiteLogo                    string
@@ -165,8 +58,6 @@ type SystemSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	DefaultConcurrency           int
-	DefaultBalance               float64
 	RiskControlEnabled           bool
 	CyberSessionBlockEnabled     bool
 	CyberPolicyUserAllowlist     string
@@ -177,8 +68,6 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
-	DefaultUserRPMLimit          int
-	DefaultSubscriptions         []DefaultSubscriptionSetting
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -321,45 +210,22 @@ type SystemSettings struct {
 	AllowUserViewErrorRequests bool
 }
 
-type DefaultSubscriptionSetting struct {
-	GroupID      int64 `json:"group_id"`
-	ValidityDays int   `json:"validity_days"`
-}
-
 type PublicSettings struct {
-	RegistrationEnabled                 bool
-	EmailVerifyEnabled                  bool
-	ForceEmailOnThirdPartySignup        bool
-	RegistrationEmailSuffixWhitelist    []string
-	RegistrationEmailDomainQuotaEnabled bool
-	PromoCodeEnabled                    bool
-	PasswordResetEnabled                bool
-	InvitationCodeEnabled               bool
-	TotpEnabled                         bool // TOTP 双因素认证
-	PasskeyEnabled                      bool
-	LoginAgreementEnabled               bool
-	LoginAgreementMode                  string
-	LoginAgreementUpdatedAt             string
-	LoginAgreementRevision              string
-	LoginAgreementDocuments             []LoginAgreementDocument
-	TurnstileEnabled                    bool
-	TurnstileSiteKey                    string
-	TencentCaptchaEnabled               bool
-	TencentCaptchaAppID                 string
-	TencentCaptchaRegion                string
-	AliyunCaptchaEnabled                bool
-	AliyunCaptchaSceneID                string
-	AliyunCaptchaPrefix                 string
-	AliyunCaptchaRegion                 string
-	SiteName                            string
-	SiteLogo                            string
-	SiteSubtitle                        string
-	APIBaseURL                          string
-	ContactInfo                         string
-	DocURL                              string
-	HomeContent                         string
-	CompactHomeEnabled                  bool
-	HideCcsImportButton                 bool
+	LoginAgreementEnabled   bool
+	LoginAgreementMode      string
+	LoginAgreementUpdatedAt string
+	LoginAgreementRevision  string
+	LoginAgreementDocuments []LoginAgreementDocument
+
+	SiteName            string
+	SiteLogo            string
+	SiteSubtitle        string
+	APIBaseURL          string
+	ContactInfo         string
+	DocURL              string
+	HomeContent         string
+	CompactHomeEnabled  bool
+	HideCcsImportButton bool
 
 	PurchaseSubscriptionEnabled bool
 	PurchaseSubscriptionURL     string
@@ -368,21 +234,11 @@ type PublicSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	LinuxDoOAuthEnabled      bool
-	DingTalkOAuthEnabled     bool
-	WeChatOAuthEnabled       bool
-	WeChatOAuthOpenEnabled   bool
-	WeChatOAuthMPEnabled     bool
-	WeChatOAuthMobileEnabled bool
-	BackendModeEnabled       bool
-	MCPEnabled               bool // 由部署配置 MCP_PUBLIC_URL 决定，不可在后台修改
-	PaymentEnabled           bool
-	PaymentBalanceDisabled   bool
-	OIDCOAuthEnabled         bool
-	OIDCOAuthProviderName    string
-	GitHubOAuthEnabled       bool
-	GoogleOAuthEnabled       bool
-	Version                  string
+	BackendModeEnabled     bool
+	PaymentEnabled         bool
+	PaymentBalanceDisabled bool
+
+	Version string
 
 	BalanceLowNotifyEnabled     bool
 	AccountQuotaNotifyEnabled   bool
@@ -429,64 +285,27 @@ type LoginAgreementDocument struct {
 	ContentMD string `json:"content_md"`
 }
 
+// WeChatConnectOAuthConfig contains only the MP credentials used for payments.
 type WeChatConnectOAuthConfig struct {
-	Enabled             bool
-	LegacyAppID         string
-	LegacyAppSecret     string
-	OpenAppID           string
-	OpenAppSecret       string
-	MPAppID             string
-	MPAppSecret         string
-	MobileAppID         string
-	MobileAppSecret     string
-	OpenEnabled         bool
-	MPEnabled           bool
-	MobileEnabled       bool
-	Mode                string
-	Scopes              string
-	RedirectURL         string
-	FrontendRedirectURL string
+	MPAppID     string
+	MPAppSecret string
+	MPEnabled   bool
 }
 
 func (cfg WeChatConnectOAuthConfig) SupportsMode(mode string) bool {
-	switch normalizeWeChatConnectModeSetting(mode) {
-	case "mp":
-		return cfg.MPEnabled
-	case "mobile":
-		return cfg.MobileEnabled
-	default:
-		return cfg.OpenEnabled
-	}
+	return mode == "mp" && cfg.MPEnabled
 }
-
-func (cfg WeChatConnectOAuthConfig) ScopeForMode(mode string) string {
-	switch normalizeWeChatConnectModeSetting(mode) {
-	case "mp":
-		return normalizeWeChatConnectScopeSetting(cfg.Scopes, "mp")
-	case "mobile":
-		return ""
-	}
-	return defaultWeChatConnectScopeForMode("open")
-}
-
 func (cfg WeChatConnectOAuthConfig) AppIDForMode(mode string) string {
-	switch normalizeWeChatConnectModeSetting(mode) {
-	case "mp":
-		return strings.TrimSpace(firstNonEmpty(cfg.MPAppID, cfg.LegacyAppID))
-	case "mobile":
-		return strings.TrimSpace(firstNonEmpty(cfg.MobileAppID, cfg.LegacyAppID))
+	if mode == "mp" {
+		return cfg.MPAppID
 	}
-	return strings.TrimSpace(firstNonEmpty(cfg.OpenAppID, cfg.LegacyAppID))
+	return ""
 }
-
 func (cfg WeChatConnectOAuthConfig) AppSecretForMode(mode string) string {
-	switch normalizeWeChatConnectModeSetting(mode) {
-	case "mp":
-		return strings.TrimSpace(firstNonEmpty(cfg.MPAppSecret, cfg.LegacyAppSecret))
-	case "mobile":
-		return strings.TrimSpace(firstNonEmpty(cfg.MobileAppSecret, cfg.LegacyAppSecret))
+	if mode == "mp" {
+		return cfg.MPAppSecret
 	}
-	return strings.TrimSpace(firstNonEmpty(cfg.OpenAppSecret, cfg.LegacyAppSecret))
+	return ""
 }
 
 // StreamTimeoutSettings 流超时处理配置（仅控制超时后的处理方式，超时判定由网关配置控制）

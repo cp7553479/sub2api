@@ -529,27 +529,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_retry_attempts_unique_active
 -- 2) Optional: pg_trgm + trigram indexes for fuzzy search
 -- ============================================
 
-DO $$
-BEGIN
-  BEGIN
-    CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  EXCEPTION WHEN OTHERS THEN
-    -- Missing privileges or extension package should not block migrations.
-    RAISE NOTICE 'pg_trgm extension not created: %', SQLERRM;
-  END;
-
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
-    -- request_id / client_request_id fuzzy search
-    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ops_error_logs_request_id_trgm
-             ON ops_error_logs USING gin (request_id gin_trgm_ops)';
-    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ops_error_logs_client_request_id_trgm
-             ON ops_error_logs USING gin (client_request_id gin_trgm_ops)';
-
-    -- error_message fuzzy search
-    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_ops_error_logs_error_message_trgm
-             ON ops_error_logs USING gin (error_message gin_trgm_ops)';
-  END IF;
-END $$;
+-- The database owner installs pg_trgm before the runtime role applies migrations.
+CREATE INDEX IF NOT EXISTS idx_ops_error_logs_request_id_trgm
+    ON ops_error_logs USING gin (request_id gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_ops_error_logs_client_request_id_trgm
+    ON ops_error_logs USING gin (client_request_id gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_ops_error_logs_error_message_trgm
+    ON ops_error_logs USING gin (error_message gin_trgm_ops);
 
 -- =====================================================================
 -- 034_ops_preaggregation_add_avg_max.sql

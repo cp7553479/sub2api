@@ -66,7 +66,8 @@ func ProvideSchedulerCache(rdb *redis.Client, cfg *config.Config) service.Schedu
 // ProviderSet is the Wire provider set for all repositories
 var ProviderSet = wire.NewSet(
 	NewUserRepository,
-	NewMCPOAuthRepository,
+	NewUserBindingRepository,
+	NewPlatformIdentityRepository,
 	NewAPIKeyRepository,
 	NewGroupRepository,
 	NewAdminGroupRepository,
@@ -88,11 +89,8 @@ var ProviderSet = wire.NewSet(
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,
 	NewSettingRepository,
-	NewScopedAdminKeyRepository,
 	NewOpsRepository,
 	NewAuditLogRepository,
-	NewPasskeyRepository,
-	NewPasskeySessionStore,
 	NewUserSubscriptionRepository,
 	NewUserAttributeDefinitionRepository,
 	NewUserAttributeValueRepository,
@@ -137,8 +135,6 @@ var ProviderSet = wire.NewSet(
 	NewSchedulerOutboxRepository,
 	NewAuthCacheInvalidationOutboxRepository,
 	NewProxyLatencyCache,
-	NewTotpCache,
-	NewRefreshTokenCache,
 	NewErrorPassthroughCache,
 	NewTLSFingerprintProfileCache,
 	NewChannelCache,
@@ -155,9 +151,6 @@ var ProviderSet = wire.NewSet(
 	ProvideImageStorageFactory,
 
 	// HTTP service ports (DI Strategy A: return interface directly)
-	NewTurnstileVerifier,
-	NewTencentCaptchaVerifier,
-	NewAliyunCaptchaVerifier,
 	ProvidePricingRemoteClient,
 	ProvideGitHubReleaseClient,
 	NewProxyExitInfoProber,

@@ -1,118 +1,80 @@
-import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import LoginView from '@/views/auth/LoginView.vue'
+import { flushPromises, mount } from '@vue/test-utils'
+import LoginView from '../LoginView.vue'
+import RegisterView from '../RegisterView.vue'
 
-const { getPublicSettingsMock, pushMock } = vi.hoisted(() => ({
-  getPublicSettingsMock: vi.fn(),
-  pushMock: vi.fn()
+const { auth, app, push } = vi.hoisted(() => ({
+  auth: { login: vi.fn(), register: vi.fn(), isAdmin: false },
+  app: { siteName: 'Sub2API', showError: vi.fn(), publicSettingsLoaded: true, cachedPublicSettings: {} as Record<string, unknown> },
+  push: vi.fn()
 }))
+vi.mock('@/stores', () => ({ useAuthStore: () => auth, useAppStore: () => app }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => app }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push }), useRoute: () => ({ query: {} }) }))
+vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('@/components/layout', () => ({ AuthLayout: { template: '<main><slot /><slot name="footer" /></main>' } }))
+const options = { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } }
 
-const publicSettings = {
-  registration_enabled: true,
-  turnstile_enabled: false,
-  turnstile_site_key: '',
-  tencent_captcha_enabled: false,
-  tencent_captcha_app_id: '',
-  aliyun_captcha_enabled: false,
-  aliyun_captcha_scene_id: '',
-  aliyun_captcha_prefix: '',
-  linuxdo_oauth_enabled: false,
-  dingtalk_oauth_enabled: false,
-  wechat_oauth_enabled: false,
-  backend_mode_enabled: false,
-  oidc_oauth_enabled: false,
-  oidc_oauth_provider_name: 'OIDC',
-  github_oauth_enabled: false,
-  google_oauth_enabled: false,
-  password_reset_enabled: false,
-  passkey_enabled: false,
-  login_agreement_enabled: false,
-  login_agreement_documents: []
-}
-
-vi.mock('vue-router', () => ({
-  useRouter: () => ({
-    push: pushMock,
-    currentRoute: { value: { query: {} } }
-  })
-}))
-
-vi.mock('vue-i18n', () => ({
-  createI18n: () => ({
-    global: {
-      t: (key: string) => key
-    }
-  }),
-  useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
-
-vi.mock('@/stores', () => ({
-  useAuthStore: () => ({
-    login: vi.fn(),
-    loginWithPasskey: vi.fn(),
-    login2FA: vi.fn()
-  }),
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-    showWarning: vi.fn()
-  })
-}))
-
-vi.mock('@/api/auth', () => ({
-  buildOAuthLoginStartURL: vi.fn(),
-  getPublicSettings: (...args: unknown[]) => getPublicSettingsMock(...args),
-  isTotp2FARequired: vi.fn(() => false),
-  isWeChatWebOAuthEnabled: vi.fn(() => false),
-  startOAuthLogin: vi.fn()
-}))
-
-function mountLogin() {
-  return mount(LoginView, {
-    global: {
-      stubs: {
-        AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
-        DingTalkOAuthSection: true,
-        EmailOAuthButtons: true,
-        Icon: true,
-        LinuxDoOAuthSection: true,
-        LoginAgreementPrompt: true,
-        OidcOAuthSection: true,
-        RouterLink: { template: '<a><slot /></a>' },
-        TotpLoginModal: true,
-        TurnstileWidget: true,
-        WechatOAuthSection: true,
-        transition: false
-      }
-    }
-  })
-}
-
-describe('LoginView registration entry', () => {
+describe('platform sign-in screens', () => {
   beforeEach(() => {
-    getPublicSettingsMock.mockReset()
-    pushMock.mockReset()
-    getPublicSettingsMock.mockResolvedValue(publicSettings)
+    vi.clearAllMocks()
+    localStorage.clear()
+    app.cachedPublicSettings = {}
+    auth.login.mockResolvedValue({})
+    auth.register.mockResolvedValue(null)
   })
-
-  it('shows the registration entry when registration is enabled', async () => {
-    const wrapper = mountLogin()
+  it('signs in with existing credentials and routes to business resources', async () => {
+    const wrapper = mount(LoginView, options)
+    await wrapper.get('#email').setValue('user@example.test')
+    await wrapper.get('#password').setValue('secret')
+    await wrapper.get('form').trigger('submit')
     await flushPromises()
-
-    expect(wrapper.text()).toContain('auth.signUp')
+    expect(auth.login).toHaveBeenCalledWith({ email: 'user@example.test', password: 'secret' })
+    expect(push).toHaveBeenCalledWith('/dashboard')
+    expect(wrapper.find('input[autocomplete="one-time-code"]').exists()).toBe(false)
   })
-
-  it('hides the registration entry when registration is disabled', async () => {
-    getPublicSettingsMock.mockResolvedValueOnce({
-      ...publicSettings,
-      registration_enabled: false
-    })
-
-    const wrapper = mountLogin()
+  it('keeps submission disabled until the platform and business admission finish', async () => {
+    let resolveLogin!: () => void
+    auth.login.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveLogin = resolve }))
+    const wrapper = mount(LoginView, options)
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    resolveLogin()
     await flushPromises()
-
-    expect(wrapper.text()).not.toContain('auth.signUp')
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+  it('retains configured site-document acknowledgement without adding native authentication data', async () => {
+    app.cachedPublicSettings = {
+      login_agreement_enabled: true, login_agreement_mode: 'checkbox', login_agreement_revision: 'terms-v1',
+      login_agreement_documents: [{ id: 'terms', title: 'Terms', content_md: 'Terms content' }]
+    }
+    const wrapper = mount(LoginView, options)
+    await wrapper.get('#email').setValue('user@example.test')
+    await wrapper.get('#password').setValue('secret')
+    await wrapper.get('form').trigger('submit')
+    expect(auth.login).not.toHaveBeenCalled()
+    await wrapper.get('#login-agreement-consent').setValue(true)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(auth.login).toHaveBeenCalledWith({ email: 'user@example.test', password: 'secret' })
+    expect(JSON.parse(localStorage.getItem('sub2api_login_agreement_consent')!).revision).toBe('terms-v1')
+  })
+  it('shows a platform error without navigating as an authenticated user', async () => {
+    auth.login.mockRejectedValueOnce(new Error('Account disabled'))
+    const wrapper = mount(LoginView, options)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(app.showError).toHaveBeenCalledWith('Account disabled')
+    expect(push).not.toHaveBeenCalled()
+  })
+  it('shows email confirmation after signup without faking an active session', async () => {
+    const wrapper = mount(RegisterView, options)
+    await wrapper.get('#email').setValue('new@example.test')
+    await wrapper.get('#password').setValue('secret')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(auth.register).toHaveBeenCalledWith({ email: 'new@example.test', password: 'secret' })
+    expect(wrapper.get('[role="status"]').text()).toBe('auth.emailConfirmation')
+    expect(push).not.toHaveBeenCalled()
   })
 })

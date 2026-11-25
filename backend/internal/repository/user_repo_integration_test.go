@@ -4,15 +4,12 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/suite"
@@ -28,7 +25,7 @@ type UserRepoSuite struct {
 func (s *UserRepoSuite) SetupTest() {
 	s.ctx = context.Background()
 	s.client = testEntClient(s.T())
-	s.repo = newUserRepositoryWithSQL(s.client, integrationDB)
+	s.repo = newUserRepositoryWithSQL(s.client, integrationDB, testPlatformSchema)
 
 	// 清理测试数据，确保每个测试从干净状态开始
 	_, _ = integrationDB.ExecContext(s.ctx, "DELETE FROM auth_identity_channels")
@@ -48,9 +45,6 @@ func (s *UserRepoSuite) mustCreateUser(u *service.User) *service.User {
 	if u.Email == "" {
 		u.Email = "user-" + time.Now().Format(time.RFC3339Nano) + "@example.com"
 	}
-	if u.PasswordHash == "" {
-		u.PasswordHash = "test-password-hash"
-	}
 	if u.Role == "" {
 		u.Role = service.RoleUser
 	}
@@ -61,46 +55,8 @@ func (s *UserRepoSuite) mustCreateUser(u *service.User) *service.User {
 		u.Concurrency = 5
 	}
 
-	s.Require().NoError(s.repo.Create(s.ctx, u), "create user")
+	s.Require().NoError(seedBusinessUser(s.ctx, s.client, integrationDB, u), "create user")
 	return u
-}
-
-func (s *UserRepoSuite) TestCreateWithEmailAliasGuardAndDomainLimitConcurrent() {
-	domain := "race-" + strings.ToLower(strings.ReplaceAll(time.Now().Format("150405.000000000"), ".", "")) + ".example"
-	users := []*service.User{
-		{Email: "first@" + domain, PasswordHash: "hash", Role: service.RoleUser, Status: service.StatusActive},
-		{Email: "second@" + domain, PasswordHash: "hash", Role: service.RoleUser, Status: service.StatusActive},
-	}
-
-	errs := make(chan error, len(users))
-	var wg sync.WaitGroup
-	for _, user := range users {
-		wg.Add(1)
-		go func(user *service.User) {
-			defer wg.Done()
-			errs <- s.repo.CreateWithEmailAliasGuardAndDomainLimit(s.ctx, user, domain)
-		}(user)
-	}
-	wg.Wait()
-	close(errs)
-
-	var success, limited int
-	for err := range errs {
-		switch {
-		case err == nil:
-			success++
-		case errors.Is(err, service.ErrEmailDomainRegistrationLimit):
-			limited++
-		default:
-			s.Require().NoError(err)
-		}
-	}
-	s.Require().Equal(1, success)
-	s.Require().Equal(1, limited)
-
-	count, err := s.repo.CountUsersByEmailDomain(s.ctx, domain)
-	s.Require().NoError(err)
-	s.Require().Equal(1, count)
 }
 
 func (s *UserRepoSuite) mustCreateGroup(name string) *service.Group {
@@ -138,54 +94,9 @@ func (s *UserRepoSuite) mustCreateSubscription(userID, groupID int64, mutate fun
 
 // --- Create / GetByID / GetByEmail / Update / Delete ---
 
-func (s *UserRepoSuite) TestCreate() {
-	user := s.mustCreateUser(&service.User{
-		Email:        "create@test.com",
-		Username:     "testuser",
-		PasswordHash: "test-password-hash",
-		Role:         service.RoleUser,
-		Status:       service.StatusActive,
-	})
-
-	s.Require().NotZero(user.ID, "expected ID to be set")
-
-	got, err := s.repo.GetByID(s.ctx, user.ID)
-	s.Require().NoError(err, "GetByID")
-	s.Require().Equal("create@test.com", got.Email)
-}
-
 func (s *UserRepoSuite) TestGetByID_NotFound() {
 	_, err := s.repo.GetByID(s.ctx, 999999)
 	s.Require().Error(err, "expected error for non-existent ID")
-}
-
-func (s *UserRepoSuite) TestGetByEmail() {
-	user := s.mustCreateUser(&service.User{Email: "byemail@test.com"})
-
-	got, err := s.repo.GetByEmail(s.ctx, user.Email)
-	s.Require().NoError(err, "GetByEmail")
-	s.Require().Equal(user.ID, got.ID)
-}
-
-func (s *UserRepoSuite) TestGetByEmail_NormalizesSpacingAndCaseOnPostgres() {
-	user := s.mustCreateUser(&service.User{Email: " Legacy@Example.com "})
-
-	got, err := s.repo.GetByEmail(s.ctx, "  legacy@example.com  ")
-	s.Require().NoError(err, "GetByEmail normalized lookup")
-	s.Require().Equal(user.ID, got.ID)
-}
-
-func (s *UserRepoSuite) TestGetByEmail_NotFound() {
-	_, err := s.repo.GetByEmail(s.ctx, "nonexistent@test.com")
-	s.Require().Error(err, "expected error for non-existent email")
-}
-
-func (s *UserRepoSuite) TestExistsByEmail_NormalizesSpacingAndCaseOnPostgres() {
-	s.mustCreateUser(&service.User{Email: " Legacy@Example.com "})
-
-	exists, err := s.repo.ExistsByEmail(s.ctx, "  LEGACY@example.com  ")
-	s.Require().NoError(err, "ExistsByEmail normalized lookup")
-	s.Require().True(exists)
 }
 
 func (s *UserRepoSuite) TestUpdate() {
@@ -253,73 +164,6 @@ func (s *UserRepoSuite) TestBatchUpdateLimitsIgnoresDeletedUsersAndReturnsAffect
 	updatedDeleted, err := s.repo.GetByIDIncludeDeleted(s.ctx, deleted.ID)
 	s.Require().NoError(err)
 	s.Equal(10, updatedDeleted.RPMLimit)
-}
-
-func (s *UserRepoSuite) TestUpdateIgnoresNoRowsFromConflictingEmailIdentityUpsert() {
-	user := s.mustCreateUser(&service.User{Email: "update-existing-identity@test.com", Username: "original"})
-
-	identityCount, err := s.client.AuthIdentity.Query().
-		Where(
-			authidentity.UserIDEQ(user.ID),
-			authidentity.ProviderTypeEQ("email"),
-			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("update-existing-identity@test.com"),
-		).
-		Count(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Equal(1, identityCount)
-
-	got, err := s.repo.GetByID(s.ctx, user.ID)
-	s.Require().NoError(err)
-	got.Username = "updated"
-	s.Require().NoError(s.repo.Update(s.ctx, got, service.UserUpdateFields{Username: true}), "Update should tolerate ON CONFLICT DO NOTHING returning no rows")
-
-	updated, err := s.repo.GetByID(s.ctx, user.ID)
-	s.Require().NoError(err)
-	s.Require().Equal("updated", updated.Username)
-}
-
-func (s *UserRepoSuite) TestDelete() {
-	user := s.mustCreateUser(&service.User{Email: "delete@test.com"})
-
-	err := s.repo.Delete(s.ctx, user.ID)
-	s.Require().NoError(err, "Delete")
-
-	_, err = s.repo.GetByID(s.ctx, user.ID)
-	s.Require().Error(err, "expected error after delete")
-}
-
-func (s *UserRepoSuite) TestDeleteRemovesAuthIdentitiesAndChannels() {
-	user := s.mustCreateUser(&service.User{Email: "delete-oauth@test.com"})
-
-	identity, err := s.client.AuthIdentity.Create().
-		SetUserID(user.ID).
-		SetProviderType("linuxdo").
-		SetProviderKey("linuxdo").
-		SetProviderSubject("delete-oauth-subject").
-		Save(s.ctx)
-	s.Require().NoError(err)
-
-	_, err = s.client.AuthIdentityChannel.Create().
-		SetIdentityID(identity.ID).
-		SetProviderType("wechat").
-		SetProviderKey("wechat").
-		SetChannel("open").
-		SetChannelAppID("app-id").
-		SetChannelSubject("openid-123").
-		Save(s.ctx)
-	s.Require().NoError(err)
-
-	err = s.repo.Delete(s.ctx, user.ID)
-	s.Require().NoError(err)
-
-	identityCount, err := s.client.AuthIdentity.Query().Where(authidentity.UserIDEQ(user.ID)).Count(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Zero(identityCount)
-
-	channelCount, err := s.client.AuthIdentityChannel.Query().Where(authidentitychannel.IdentityIDEQ(identity.ID)).Count(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Zero(channelCount)
 }
 
 // --- List / ListWithFilters ---
@@ -592,18 +436,6 @@ func (s *UserRepoSuite) TestApplyRedeemConcurrencyAdjustment_ConcurrentNeverNega
 
 // --- ExistsByEmail ---
 
-func (s *UserRepoSuite) TestExistsByEmail() {
-	s.mustCreateUser(&service.User{Email: "exists@test.com"})
-
-	exists, err := s.repo.ExistsByEmail(s.ctx, "exists@test.com")
-	s.Require().NoError(err, "ExistsByEmail")
-	s.Require().True(exists)
-
-	notExists, err := s.repo.ExistsByEmail(s.ctx, "notexists@test.com")
-	s.Require().NoError(err)
-	s.Require().False(notExists)
-}
-
 // --- RemoveGroupFromAllowedGroups ---
 
 func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups() {
@@ -643,53 +475,6 @@ func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups_NoMatch() {
 	s.Require().Zero(affected, "expected no affected rows")
 }
 
-// --- GetFirstAdmin ---
-
-func (s *UserRepoSuite) TestGetFirstAdmin() {
-	admin1 := s.mustCreateUser(&service.User{
-		Email:  "admin1@example.com",
-		Role:   service.RoleAdmin,
-		Status: service.StatusActive,
-	})
-	s.mustCreateUser(&service.User{
-		Email:  "admin2@example.com",
-		Role:   service.RoleAdmin,
-		Status: service.StatusActive,
-	})
-
-	got, err := s.repo.GetFirstAdmin(s.ctx)
-	s.Require().NoError(err, "GetFirstAdmin")
-	s.Require().Equal(admin1.ID, got.ID, "GetFirstAdmin mismatch")
-}
-
-func (s *UserRepoSuite) TestGetFirstAdmin_NoAdmin() {
-	s.mustCreateUser(&service.User{
-		Email:  "user@example.com",
-		Role:   service.RoleUser,
-		Status: service.StatusActive,
-	})
-
-	_, err := s.repo.GetFirstAdmin(s.ctx)
-	s.Require().Error(err, "expected error when no admin exists")
-}
-
-func (s *UserRepoSuite) TestGetFirstAdmin_DisabledAdminIgnored() {
-	s.mustCreateUser(&service.User{
-		Email:  "disabled@example.com",
-		Role:   service.RoleAdmin,
-		Status: service.StatusDisabled,
-	})
-	activeAdmin := s.mustCreateUser(&service.User{
-		Email:  "active@example.com",
-		Role:   service.RoleAdmin,
-		Status: service.StatusActive,
-	})
-
-	got, err := s.repo.GetFirstAdmin(s.ctx)
-	s.Require().NoError(err, "GetFirstAdmin")
-	s.Require().Equal(activeAdmin.ID, got.ID, "should return only active admin")
-}
-
 // --- Combined ---
 
 func (s *UserRepoSuite) TestCRUD_And_Filters_And_AtomicUpdates() {
@@ -716,10 +501,6 @@ func (s *UserRepoSuite) TestCRUD_And_Filters_And_AtomicUpdates() {
 	got, err := s.repo.GetByID(s.ctx, user1.ID)
 	s.Require().NoError(err, "GetByID")
 	s.Require().Equal(user1.Email, got.Email, "GetByID email mismatch")
-
-	gotByEmail, err := s.repo.GetByEmail(s.ctx, user2.Email)
-	s.Require().NoError(err, "GetByEmail")
-	s.Require().Equal(user2.ID, gotByEmail.ID, "GetByEmail ID mismatch")
 
 	got.Username = "Alice2"
 	s.Require().NoError(s.repo.Update(s.ctx, got, service.UserUpdateFields{Username: true}), "Update")

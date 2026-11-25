@@ -493,7 +493,7 @@ func (s *PaymentConfigService) mergeConfig(ctx context.Context, id int64, newCon
 // decryptConfig parses a stored provider config.
 // New records are plaintext JSON; legacy records are AES-256-GCM ciphertext
 // ("iv:authTag:ciphertext"). Values that cannot be parsed as either — including
-// legacy ciphertext with no/invalid TOTP_ENCRYPTION_KEY — are treated as empty,
+// legacy ciphertext with no/invalid SECRETS_ENCRYPTION_KEY — are treated as empty,
 // letting the admin re-enter the config via the UI to complete the migration.
 //
 // TODO(deprecated-legacy-ciphertext): The AES fallback branch is a transitional

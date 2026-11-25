@@ -49,7 +49,6 @@ type AdminHandlers struct {
 type Handlers struct {
 	Auth             *AuthHandler
 	User             *UserHandler
-	MCPOAuth         *MCPOAuthHandler
 	APIKey           *APIKeyHandler
 	Usage            *UsageHandler
 	Redeem           *RedeemHandler
@@ -61,8 +60,6 @@ type Handlers struct {
 	Gateway          *GatewayHandler
 	OpenAIGateway    *OpenAIGatewayHandler
 	Setting          *SettingHandler
-	Totp             *TotpHandler
-	Passkey          *PasskeyHandler
 	Payment          *PaymentHandler
 	PaymentWebhook   *PaymentWebhookHandler
 	AvailableChannel *AvailableChannelHandler

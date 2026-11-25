@@ -292,7 +292,7 @@ export default {
         configured: 'Configured',
         notConfigured: 'Not configured',
         notRefreshed: 'Not refreshed',
-        encryptionKeyRequired: 'Set a persistent TOTP_ENCRYPTION_KEY before storing a browser session.',
+        encryptionKeyRequired: 'Set a persistent SECRETS_ENCRYPTION_KEY before storing a browser session.',
         sessionLabel: 'Ollama browser Cookie',
         sessionPlaceholder: 'wos-session=...; __Secure-authjs.session-token.0=...',
         writeOnlyHint: 'Write-only. The saved value cannot be viewed and an empty value never replaces it.',

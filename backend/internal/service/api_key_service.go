@@ -298,6 +298,7 @@ type APIKeyService struct {
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	concurrencyService        *ConcurrencyService
 	cfg                       *config.Config
+	platform                  PlatformIdentityRepository
 	authCacheL1               *ristretto.Cache
 	authNegativeCacheL1       *ristretto.Cache
 	authCfg                   apiKeyAuthCacheConfig
@@ -345,6 +346,7 @@ func NewAPIKeyService(
 	userGroupRateRepo UserGroupRateRepository,
 	cache APIKeyCache,
 	cfg *config.Config,
+	platform PlatformIdentityRepository,
 ) *APIKeyService {
 	svc := &APIKeyService{
 		apiKeyRepo:        apiKeyRepo,
@@ -354,6 +356,7 @@ func NewAPIKeyService(
 		userGroupRateRepo: userGroupRateRepo,
 		cache:             cache,
 		cfg:               cfg,
+		platform:          platform,
 	}
 	svc.initAuthCache(cfg)
 	lookupConcurrency := defaultAuthLookupConcurrency
@@ -735,7 +738,23 @@ func (s *APIKeyService) GetByID(ctx context.Context, id int64) (*APIKey, error) 
 }
 
 // GetByKey 根据Key字符串获取API Key（用于认证）
-func (s *APIKeyService) GetByKey(ctx context.Context, key string) (*APIKey, error) {
+func (s *APIKeyService) GetByKey(ctx context.Context, key string) (result *APIKey, resultErr error) {
+	defer func() {
+		if resultErr != nil || result == nil {
+			return
+		}
+		identity, err := s.platform.RequireBusinessUser(ctx, result.UserID)
+		if err != nil {
+			result = nil
+			resultErr = err
+			return
+		}
+		result.User.Role = RoleUser
+		if identity.IsAdmin {
+			result.User.Role = RoleAdmin
+		}
+		result.User.Email = identity.Email
+	}()
 	// 非 UTF-8 的 key 不可能存在（生成和自定义的 key 都是 ASCII），且 Postgres 会以
 	// invalid byte sequence 拒绝该参数；直接按不存在处理，避免返回 500。
 	if len(key) == 0 || len(key) > MaxAPIKeyCredentialBytes || !utf8.ValidString(key) {

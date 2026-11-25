@@ -36,24 +36,6 @@ type userRepoStub struct {
 	domainLimitedCreates int
 }
 
-func (s *userRepoStub) CountUsersByEmailDomain(_ context.Context, domain string) (int, error) {
-	if s.domainCountErr != nil {
-		return 0, s.domainCountErr
-	}
-	return s.domainCounts[domain], nil
-}
-
-func (s *userRepoStub) CreateWithEmailAliasGuardAndDomainLimit(ctx context.Context, user *User, domain string) error {
-	s.domainLimitedCreates++
-	if s.domainLimitErr != nil {
-		return s.domainLimitErr
-	}
-	if s.domainCounts[domain] > 0 {
-		return ErrEmailDomainRegistrationLimit
-	}
-	return s.CreateWithEmailAliasGuard(ctx, user)
-}
-
 func (s *userRepoStub) Create(ctx context.Context, user *User) error {
 	if s.createErr != nil {
 		return s.createErr
@@ -68,17 +50,6 @@ func (s *userRepoStub) Create(ctx context.Context, user *User) error {
 	s.usersByEmail[user.Email] = user
 	s.user = user
 	return nil
-}
-
-func (s *userRepoStub) CreateWithEmailAliasGuard(ctx context.Context, user *User) error {
-	s.guardedCreates++
-	if s.aliasErr != nil {
-		return s.aliasErr
-	}
-	if s.aliasExists {
-		return ErrEmailExists
-	}
-	return s.Create(ctx, user)
 }
 
 func (s *userRepoStub) GetByID(ctx context.Context, id int64) (*User, error) {
@@ -217,26 +188,6 @@ func (s *userRepoStub) RemoveGroupFromUserAllowedGroups(ctx context.Context, use
 
 func (s *userRepoStub) AddGroupToAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
 	panic("unexpected AddGroupToAllowedGroups call")
-}
-
-func (s *userRepoStub) ListUserAuthIdentities(ctx context.Context, userID int64) ([]UserAuthIdentityRecord, error) {
-	panic("unexpected ListUserAuthIdentities call")
-}
-
-func (s *userRepoStub) UnbindUserAuthProvider(context.Context, int64, string) error {
-	panic("unexpected UnbindUserAuthProvider call")
-}
-
-func (s *userRepoStub) UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error {
-	panic("unexpected UpdateTotpSecret call")
-}
-
-func (s *userRepoStub) EnableTotp(ctx context.Context, userID int64) error {
-	panic("unexpected EnableTotp call")
-}
-
-func (s *userRepoStub) DisableTotp(ctx context.Context, userID int64) error {
-	panic("unexpected DisableTotp call")
 }
 
 func (s *userRepoStub) GetByIDIncludeDeleted(ctx context.Context, id int64) (*User, error) {
@@ -588,72 +539,6 @@ func waitForInvalidations(t *testing.T, ch <-chan subscriptionInvalidateCall, ex
 		}
 	}
 	return calls
-}
-
-func TestAdminService_DeleteUser_Success(t *testing.T) {
-	repo := &userRepoStub{user: &User{ID: 7, Role: RoleUser}}
-	svc := &adminServiceImpl{userRepo: repo}
-
-	err := svc.DeleteUser(context.Background(), 7)
-	require.NoError(t, err)
-	require.Equal(t, []int64{7}, repo.deletedIDs)
-}
-
-func TestAdminService_DeleteUser_DeletesOwnedAPIKeys(t *testing.T) {
-	repo := &userRepoStub{user: &User{ID: 7, Role: RoleUser}}
-	apiKeyRepo := &apiKeyRepoStub{
-		allowListByUserID: true,
-		listByUserIDKeys: []APIKey{
-			{ID: 11, UserID: 7, Key: "sk-user-1"},
-			{ID: 12, UserID: 7, Key: "sk-user-2"},
-		},
-	}
-	invalidator := &authCacheInvalidatorStub{}
-	svc := &adminServiceImpl{
-		userRepo:             repo,
-		apiKeyRepo:           apiKeyRepo,
-		authCacheInvalidator: invalidator,
-	}
-
-	err := svc.DeleteUser(context.Background(), 7)
-	require.NoError(t, err)
-	require.Equal(t, []int64{7}, repo.deletedIDs)
-	require.Equal(t, []int64{7}, apiKeyRepo.listByUserIDCalls)
-	require.Equal(t, []int64{11, 12}, apiKeyRepo.deletedIDs)
-	require.ElementsMatch(t, []string{"sk-user-1", "sk-user-2"}, invalidator.keys)
-	require.Equal(t, []int64{7}, invalidator.userIDs)
-}
-
-func TestAdminService_DeleteUser_NotFound(t *testing.T) {
-	repo := &userRepoStub{getErr: ErrUserNotFound}
-	svc := &adminServiceImpl{userRepo: repo}
-
-	err := svc.DeleteUser(context.Background(), 404)
-	require.ErrorIs(t, err, ErrUserNotFound)
-	require.Empty(t, repo.deletedIDs)
-}
-
-func TestAdminService_DeleteUser_AdminGuard(t *testing.T) {
-	repo := &userRepoStub{user: &User{ID: 1, Role: RoleAdmin}}
-	svc := &adminServiceImpl{userRepo: repo}
-
-	err := svc.DeleteUser(context.Background(), 1)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "cannot delete admin user")
-	require.Empty(t, repo.deletedIDs)
-}
-
-func TestAdminService_DeleteUser_DeleteError(t *testing.T) {
-	deleteErr := errors.New("delete failed")
-	repo := &userRepoStub{
-		user:      &User{ID: 9, Role: RoleUser},
-		deleteErr: deleteErr,
-	}
-	svc := &adminServiceImpl{userRepo: repo}
-
-	err := svc.DeleteUser(context.Background(), 9)
-	require.ErrorIs(t, err, deleteErr)
-	require.Equal(t, []int64{9}, repo.deletedIDs)
 }
 
 func TestAdminService_DeleteGroup_Success_WithCacheInvalidation(t *testing.T) {

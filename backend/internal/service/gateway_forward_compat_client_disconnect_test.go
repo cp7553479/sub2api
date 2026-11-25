@@ -741,7 +741,7 @@ func TestForwardAsCompatStreaming_IdleTimeoutTriggersStreamTimeoutHandling(t *te
 				resp, _ := stallingAnthropicUpstream(t, tc.stream)
 				resp.StatusCode = http.StatusOK
 				repo := &errorPolicyRepoStub{}
-				settings := NewSettingService(&settingRepoStub{values: map[string]string{
+				settings := NewSettingService(&businessSettingsFixture{values: map[string]string{
 					SettingKeyStreamTimeoutSettings: `{"enabled":true,"action":"temp_unsched","temp_unsched_minutes":1,"threshold_count":1,"threshold_window_minutes":1}`,
 				}}, nil)
 				cfg := rawChatCompletionsTestConfig()

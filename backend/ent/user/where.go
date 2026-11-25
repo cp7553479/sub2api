@@ -8,6 +8,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
@@ -68,6 +69,11 @@ func UpdatedAt(v time.Time) predicate.User {
 // DeletedAt applies equality check predicate on the "deleted_at" field. It's identical to DeletedAtEQ.
 func DeletedAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldDeletedAt, v))
+}
+
+// SupabaseUserID applies equality check predicate on the "supabase_user_id" field. It's identical to SupabaseUserIDEQ.
+func SupabaseUserID(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldSupabaseUserID, v))
 }
 
 // Email applies equality check predicate on the "email" field. It's identical to EmailEQ.
@@ -310,6 +316,56 @@ func DeletedAtNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldDeletedAt))
 }
 
+// SupabaseUserIDEQ applies the EQ predicate on the "supabase_user_id" field.
+func SupabaseUserIDEQ(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDNEQ applies the NEQ predicate on the "supabase_user_id" field.
+func SupabaseUserIDNEQ(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDIn applies the In predicate on the "supabase_user_id" field.
+func SupabaseUserIDIn(vs ...uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldIn(FieldSupabaseUserID, vs...))
+}
+
+// SupabaseUserIDNotIn applies the NotIn predicate on the "supabase_user_id" field.
+func SupabaseUserIDNotIn(vs ...uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldSupabaseUserID, vs...))
+}
+
+// SupabaseUserIDGT applies the GT predicate on the "supabase_user_id" field.
+func SupabaseUserIDGT(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldGT(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDGTE applies the GTE predicate on the "supabase_user_id" field.
+func SupabaseUserIDGTE(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDLT applies the LT predicate on the "supabase_user_id" field.
+func SupabaseUserIDLT(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldLT(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDLTE applies the LTE predicate on the "supabase_user_id" field.
+func SupabaseUserIDLTE(v uuid.UUID) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldSupabaseUserID, v))
+}
+
+// SupabaseUserIDIsNil applies the IsNil predicate on the "supabase_user_id" field.
+func SupabaseUserIDIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldSupabaseUserID))
+}
+
+// SupabaseUserIDNotNil applies the NotNil predicate on the "supabase_user_id" field.
+func SupabaseUserIDNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldSupabaseUserID))
+}
+
 // EmailEQ applies the EQ predicate on the "email" field.
 func EmailEQ(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmail, v))
@@ -428,6 +484,16 @@ func PasswordHashHasPrefix(v string) predicate.User {
 // PasswordHashHasSuffix applies the HasSuffix predicate on the "password_hash" field.
 func PasswordHashHasSuffix(v string) predicate.User {
 	return predicate.User(sql.FieldHasSuffix(FieldPasswordHash, v))
+}
+
+// PasswordHashIsNil applies the IsNil predicate on the "password_hash" field.
+func PasswordHashIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldPasswordHash))
+}
+
+// PasswordHashNotNil applies the NotNil predicate on the "password_hash" field.
+func PasswordHashNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldPasswordHash))
 }
 
 // PasswordHashEqualFold applies the EqualFold predicate on the "password_hash" field.

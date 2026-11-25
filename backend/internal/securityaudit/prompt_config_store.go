@@ -30,7 +30,7 @@ type ConfigManager struct {
 	redis     *redis.Client
 	encryptor SecretEncryptor
 	clock     Clock
-	// encryptionKeyConfigured mirrors cfg.Totp.EncryptionKeyConfigured. With an
+	// encryptionKeyConfigured mirrors cfg.Secrets.EncryptionKeyConfigured. With an
 	// auto-generated (per-boot) key, newly saved endpoint tokens would become
 	// undecryptable after the next restart, so Save rejects them (issue #4887).
 	encryptionKeyConfigured bool
@@ -61,7 +61,7 @@ type ConfigManager struct {
 func NewConfigManager(db *sql.DB, settings service.SettingRepository, redisClient *redis.Client, encryptor service.SecretEncryptor, cfg *config.Config) *ConfigManager {
 	return &ConfigManager{
 		db: db, settings: settings, redis: redisClient, encryptor: encryptor, clock: realClock{},
-		encryptionKeyConfigured: cfg != nil && cfg.Totp.EncryptionKeyConfigured,
+		encryptionKeyConfigured: cfg != nil && cfg.Secrets.EncryptionKeyConfigured,
 	}
 }
 
@@ -373,7 +373,7 @@ func (m *ConfigManager) buildNextStorage(current storageConfig, req UpdateConfig
 		case strings.TrimSpace(endpoint.Token) != "":
 			if !m.encryptionKeyConfigured {
 				return storageConfig{}, infraerrors.BadRequest(ErrorCodeEncryptionKeyRequired,
-					"未配置固定加密密钥，审计节点 Token 将在服务重启后失效。请先设置 TOTP_ENCRYPTION_KEY 环境变量（64 位十六进制）并重启服务")
+					"未配置固定加密密钥，审计节点 Token 将在服务重启后失效。请先设置 SECRETS_ENCRYPTION_KEY 环境变量（64 位十六进制）并重启服务")
 			}
 			ciphertext, err := m.encryptor.Encrypt(strings.TrimSpace(endpoint.Token))
 			if err != nil {

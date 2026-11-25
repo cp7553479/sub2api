@@ -12,6 +12,7 @@ describe('API Client', () => {
 
   beforeEach(async () => {
     localStorage.clear()
+    vi.stubEnv('VITE_PLATFORM_API_URL', 'https://identity.example.test')
     sessionStorage.clear()
     window.history.replaceState({}, '', '/')
     // 每次测试重新导入以获取干净的模块状态
@@ -117,7 +118,7 @@ describe('API Client', () => {
       })
       apiClient.defaults.adapter = adapter
 
-      await apiClient.post('/auth/oauth/bind-token')
+      await apiClient.post('/user/notify-email/send-code', { email: 'notify@example.test' })
 
       const config = adapter.mock.calls[0][0]
       expect(config.withCredentials).toBe(true)
@@ -330,6 +331,23 @@ describe('API Client', () => {
   // --- 401 Token 刷新 ---
 
   describe('401 Token 刷新', () => {
+    it('returns rejected signup admission without redirecting before its session rollback', async () => {
+      window.history.replaceState({}, '', '/register')
+      const refresh = await import('@/api/tokenRefresh')
+      const rotate = vi.spyOn(refresh, 'refreshAuthTokens')
+      apiClient.defaults.adapter = vi.fn().mockRejectedValueOnce({
+        response: { status: 401, data: { code: 'ACCOUNT_UNAVAILABLE', message: 'Account unavailable' } },
+        config: { url: '/auth/me', headers: { Authorization: 'Bearer new-session-access' } },
+      })
+
+      await expect(apiClient.get('/auth/me', {
+        headers: { Authorization: 'Bearer new-session-access' },
+      })).rejects.toMatchObject({ status: 401, message: 'Account unavailable' })
+      expect(rotate).not.toHaveBeenCalled()
+      expect(window.location.pathname).toBe('/register')
+      expect(sessionStorage.getItem('auth_expired')).toBeNull()
+    })
+
     it('无 refresh_token 时 401 清除 localStorage', async () => {
       localStorage.setItem('auth_token', 'expired-token')
       // 不设置 refresh_token
@@ -393,14 +411,10 @@ describe('API Client', () => {
       apiClient.defaults.adapter = adapter
       vi.spyOn(axios, 'post').mockResolvedValueOnce({
         data: {
-          code: 0,
-          message: 'ok',
-          data: {
-            access_token: 'new-token',
-            refresh_token: 'new-refresh-token',
-            expires_in: 3600,
-            token_type: 'Bearer',
-          },
+          access_token: 'new-token',
+          refresh_token: 'new-refresh-token',
+          expires_in: 3600,
+          token_type: 'Bearer',
         },
       })
 

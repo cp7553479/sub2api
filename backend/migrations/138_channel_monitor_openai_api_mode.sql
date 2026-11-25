@@ -15,6 +15,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_name = 'channel_monitors_api_mode_check'
+          AND table_schema = current_schema()
           AND table_name = 'channel_monitors'
     ) THEN
         ALTER TABLE channel_monitors
@@ -25,6 +26,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_name = 'channel_monitor_request_templates_api_mode_check'
+          AND table_schema = current_schema()
           AND table_name = 'channel_monitor_request_templates'
     ) THEN
         ALTER TABLE channel_monitor_request_templates

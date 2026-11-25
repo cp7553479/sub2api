@@ -7,8 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"image"
 	"image/color"
 	stddraw "image/draw"
@@ -17,31 +15,26 @@ import (
 	_ "image/png"
 	"log/slog"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/sync/singleflight"
 )
 
 var (
-	ErrUserNotFound             = infraerrors.NotFound("USER_NOT_FOUND", "user not found")
-	ErrPasswordIncorrect        = infraerrors.BadRequest("PASSWORD_INCORRECT", "current password is incorrect")
-	ErrBalanceNegative          = infraerrors.BadRequest("BALANCE_NEGATIVE", "balance cannot be negative")
-	ErrInsufficientPerms        = infraerrors.Forbidden("INSUFFICIENT_PERMISSIONS", "insufficient permissions")
-	ErrNotifyCodeUserRateLimit  = infraerrors.TooManyRequests("NOTIFY_CODE_USER_RATE_LIMIT", "too many verification codes requested, please try again later")
-	ErrAvatarInvalid            = infraerrors.BadRequest("AVATAR_INVALID", "avatar must be a valid image data URL or http(s) URL")
-	ErrAvatarTooLarge           = infraerrors.BadRequest("AVATAR_TOO_LARGE", "avatar image must be 100KB or smaller")
-	ErrAvatarNotImage           = infraerrors.BadRequest("AVATAR_NOT_IMAGE", "avatar content must be an image")
-	ErrIdentityProviderInvalid  = infraerrors.BadRequest("IDENTITY_PROVIDER_INVALID", "identity provider is invalid")
-	ErrIdentityRedirectInvalid  = infraerrors.BadRequest("IDENTITY_REDIRECT_INVALID", "identity redirect path is invalid")
-	ErrIdentityUnbindLastMethod = infraerrors.Conflict(
-		"IDENTITY_UNBIND_LAST_METHOD",
-		"bind another sign-in method before unbinding this provider",
-	)
+	ErrUserNotFound            = infraerrors.NotFound("USER_NOT_FOUND", "user not found")
+	ErrBalanceNegative         = infraerrors.BadRequest("BALANCE_NEGATIVE", "balance cannot be negative")
+	ErrInsufficientPerms       = infraerrors.Forbidden("INSUFFICIENT_PERMISSIONS", "insufficient permissions")
+	ErrNotifyCodeUserRateLimit = infraerrors.TooManyRequests("NOTIFY_CODE_USER_RATE_LIMIT", "too many verification codes requested, please try again later")
+	ErrAvatarInvalid           = infraerrors.BadRequest("AVATAR_INVALID", "avatar must be a valid image data URL or http(s) URL")
+	ErrAvatarTooLarge          = infraerrors.BadRequest("AVATAR_TOO_LARGE", "avatar image must be 100KB or smaller")
+	ErrAvatarNotImage          = infraerrors.BadRequest("AVATAR_NOT_IMAGE", "avatar content must be an image")
 )
 
 const (
@@ -53,9 +46,8 @@ const (
 	notifyCodeUserRateLimit  = 5
 	notifyCodeUserRateWindow = 10 * time.Minute
 
-	defaultUserIdentityRedirect = "/settings/profile"
-	userLastActiveMinTouch      = 10 * time.Minute
-	userLastActiveFailBackoff   = 30 * time.Second
+	userLastActiveMinTouch    = 10 * time.Minute
+	userLastActiveFailBackoff = 30 * time.Second
 )
 
 var (
@@ -95,16 +87,11 @@ type UserListFilters struct {
 // 注意这里没有 balance / total_recharged：余额只能经由 AdjustBalance、
 // SetBalance、UpdateBalance、DeductBalance 等原子接口修改，Update 永远不碰它们。
 type UserUpdateFields struct {
-	Email        bool
 	Username     bool
 	Notes        bool
-	PasswordHash bool
-	Role         bool
 	Status       bool
 	Concurrency  bool
 	RPMLimit     bool
-	SignupSource bool
-	LastLoginAt  bool
 	LastActiveAt bool
 	// BalanceNotifySettings 覆盖 balance_notify_enabled / _threshold_type / _threshold。
 	BalanceNotifySettings bool
@@ -128,20 +115,11 @@ func (f UserUpdateFields) IsEmpty() bool {
 }
 
 type UserRepository interface {
-	Create(ctx context.Context, user *User) error
-	// CreateWithEmailAliasGuard 创建用户，并在邮箱唯一性锁内复查"收件箱身份"是否已被占用
-	// （+别名 / Gmail 点号 / FQDN 根点变体，见 NormalizeEmailForAliasDedup），
-	// 冲突时返回 ErrEmailExists。仅注册路径使用：同一收件箱的多个别名变体并发注册时，
-	// 服务层的前置查重会同时通过，必须由这里串行化兜底。管理员建号仍走 Create，不受限制。
-	CreateWithEmailAliasGuard(ctx context.Context, user *User) error
 	GetByID(ctx context.Context, id int64) (*User, error)
 	// GetByIDIncludeDeleted 绕过软删除过滤按 ID 取用户（含已删）。仅供管理员审计/usage 点击使用。
 	GetByIDIncludeDeleted(ctx context.Context, id int64) (*User, error)
-	GetByEmail(ctx context.Context, email string) (*User, error)
-	GetFirstAdmin(ctx context.Context) (*User, error)
 	// Update 只写 fields 中显式声明的列，其余列保持库中当前值。
 	Update(ctx context.Context, user *User, fields UserUpdateFields) error
-	Delete(ctx context.Context, id int64) error
 	GetUserAvatar(ctx context.Context, userID int64) (*UserAvatar, error)
 	UpsertUserAvatar(ctx context.Context, userID int64, input UpsertUserAvatarInput) (*UserAvatar, error)
 	DeleteUserAvatar(ctx context.Context, userID int64) error
@@ -164,29 +142,11 @@ type UserRepository interface {
 	BatchSetConcurrency(ctx context.Context, userIDs []int64, value int) (int, error)
 	BatchAddConcurrency(ctx context.Context, userIDs []int64, delta int) (int, error)
 	BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error)
-	ExistsByEmail(ctx context.Context, email string) (bool, error)
-	// ExistsByEmailAlias 判断是否已有账号与该邮箱指向同一收件箱（+别名 / Gmail 点号 /
-	// FQDN 根点变体，见 NormalizeEmailForAliasDedup）。用于注册与发送验证码前的查重。
-	ExistsByEmailAlias(ctx context.Context, email string) (bool, error)
 	RemoveGroupFromAllowedGroups(ctx context.Context, groupID int64) (int64, error)
 	// AddGroupToAllowedGroups 将指定分组增量添加到用户的 allowed_groups（幂等，冲突忽略）
 	AddGroupToAllowedGroups(ctx context.Context, userID int64, groupID int64) error
 	// RemoveGroupFromUserAllowedGroups 移除单个用户的指定分组权限
 	RemoveGroupFromUserAllowedGroups(ctx context.Context, userID int64, groupID int64) error
-	ListUserAuthIdentities(ctx context.Context, userID int64) ([]UserAuthIdentityRecord, error)
-	UnbindUserAuthProvider(ctx context.Context, userID int64, provider string) error
-
-	// TOTP 双因素认证
-	UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error
-	EnableTotp(ctx context.Context, userID int64) error
-	DisableTotp(ctx context.Context, userID int64) error
-}
-
-// RegistrationEmailDomainRepository 是生产用户仓储为非白名单域名单账户兜底策略提供的可选能力。
-// 它独立于 UserRepository，避免无关测试桩和服务消费者实现注册专用方法。
-type RegistrationEmailDomainRepository interface {
-	CountUsersByEmailDomain(ctx context.Context, domain string) (int, error)
-	CreateWithEmailAliasGuardAndDomainLimit(ctx context.Context, user *User, domain string) error
 }
 
 // RedeemUserAdjustmentRepository provides the atomic, floor-at-zero updates
@@ -197,62 +157,8 @@ type RedeemUserAdjustmentRepository interface {
 	ApplyRedeemConcurrencyAdjustment(ctx context.Context, id int64, delta int) error
 }
 
-type UserAuthIdentityRecord struct {
-	ProviderType    string
-	ProviderKey     string
-	ProviderSubject string
-	VerifiedAt      *time.Time
-	Issuer          *string
-	Metadata        map[string]any
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-}
-
-type UserIdentitySummary struct {
-	Provider      string     `json:"provider"`
-	Bound         bool       `json:"bound"`
-	BoundCount    int        `json:"bound_count"`
-	DisplayName   string     `json:"display_name,omitempty"`
-	AvatarURL     string     `json:"-"`
-	SubjectHint   string     `json:"subject_hint,omitempty"`
-	ProviderKey   string     `json:"provider_key,omitempty"`
-	VerifiedAt    *time.Time `json:"verified_at,omitempty"`
-	BindStartPath string     `json:"bind_start_path,omitempty"`
-	CanBind       bool       `json:"can_bind"`
-	CanUnbind     bool       `json:"can_unbind"`
-	NoteKey       string     `json:"note_key,omitempty"`
-	Note          string     `json:"note,omitempty"`
-}
-
-type UserIdentitySummarySet struct {
-	Email    UserIdentitySummary `json:"email"`
-	LinuxDo  UserIdentitySummary `json:"linuxdo"`
-	OIDC     UserIdentitySummary `json:"oidc"`
-	WeChat   UserIdentitySummary `json:"wechat"`
-	DingTalk UserIdentitySummary `json:"dingtalk"`
-}
-
-type StartUserIdentityBindingRequest struct {
-	Provider   string
-	RedirectTo string
-}
-
-type StartUserIdentityBindingResult struct {
-	Provider           string `json:"provider"`
-	AuthorizeURL       string `json:"authorize_url"`
-	Method             string `json:"method"`
-	UseBrowserRedirect bool   `json:"use_browser_redirect"`
-}
-
-const (
-	userIdentityNoteEmailManagedFromProfile = "profile.authBindings.notes.emailManagedFromProfile"
-	userIdentityNoteCanUnbind               = "profile.authBindings.notes.canUnbind"
-	userIdentityNoteBindAnotherBeforeUnbind = "profile.authBindings.notes.bindAnotherBeforeUnbind"
-)
-
 // UpdateProfileRequest 更新用户资料请求
 type UpdateProfileRequest struct {
-	Email                  *string  `json:"email"`
 	Username               *string  `json:"username"`
 	AvatarURL              *string  `json:"avatar_url"`
 	Concurrency            *int     `json:"concurrency"`
@@ -278,14 +184,8 @@ type UpsertUserAvatarInput struct {
 	SHA256          string
 }
 
-type userProfileIdentityTxRunner interface {
-	WithUserProfileIdentityTx(ctx context.Context, fn func(txCtx context.Context) error) error
-}
-
-// ChangePasswordRequest 修改密码请求
-type ChangePasswordRequest struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
+type userProfileTxRunner interface {
+	WithUserProfileTx(ctx context.Context, fn func(txCtx context.Context) error) error
 }
 
 // UserService 用户服务
@@ -308,170 +208,14 @@ func NewUserService(userRepo UserRepository, settingRepo SettingRepository, auth
 	}
 }
 
-// GetFirstAdmin 获取首个管理员用户（用于 Admin API Key 认证）
-func (s *UserService) GetFirstAdmin(ctx context.Context) (*User, error) {
-	admin, err := s.userRepo.GetFirstAdmin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get first admin: %w", err)
-	}
-	return admin, nil
-}
-
-// GetProfile 获取用户资料
-func (s *UserService) GetProfile(ctx context.Context, userID int64) (*User, error) {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-	normalizeLoadedUserTokenVersion(user)
-	if err := s.hydrateUserAvatar(ctx, user); err != nil {
-		return nil, fmt.Errorf("get user avatar: %w", err)
-	}
-	return user, nil
-}
-
-func (s *UserService) GetProfileIdentitySummaries(ctx context.Context, userID int64, user *User) (UserIdentitySummarySet, error) {
-	if user == nil {
-		var err error
-		user, err = s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return UserIdentitySummarySet{}, fmt.Errorf("get user: %w", err)
-		}
-	}
-
-	records, err := s.listUserAuthIdentities(ctx, userID)
-	if err != nil {
-		return UserIdentitySummarySet{}, err
-	}
-
-	summaries := UserIdentitySummarySet{
-		Email:    s.buildEmailIdentitySummary(user, records),
-		LinuxDo:  s.buildProviderIdentitySummary("linuxdo", user, records),
-		OIDC:     s.buildProviderIdentitySummary("oidc", user, records),
-		WeChat:   s.buildProviderIdentitySummary("wechat", user, records),
-		DingTalk: s.buildProviderIdentitySummary("dingtalk", user, records),
-	}
-
-	s.applyExplicitProviderAvailability(ctx, &summaries)
-	return summaries, nil
-}
-
-func (s *UserService) applyExplicitProviderAvailability(ctx context.Context, summaries *UserIdentitySummarySet) {
-	if s == nil || summaries == nil || s.settingRepo == nil {
-		return
-	}
-
-	settings, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyLinuxDoConnectEnabled,
-		SettingKeyOIDCConnectEnabled,
-		SettingKeyWeChatConnectEnabled,
-		SettingKeyWeChatConnectOpenEnabled,
-		SettingKeyWeChatConnectMPEnabled,
-		SettingKeyWeChatConnectMobileEnabled,
-		SettingKeyWeChatConnectMode,
-		SettingKeyDingTalkConnectEnabled,
-	})
-	if err != nil {
-		return
-	}
-
-	if raw, ok := settings[SettingKeyLinuxDoConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.LinuxDo)
-	}
-	if raw, ok := settings[SettingKeyDingTalkConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.DingTalk)
-	}
-	if raw, ok := settings[SettingKeyOIDCConnectEnabled]; ok && strings.TrimSpace(raw) != "" && raw != "true" {
-		disableIdentityBindAction(&summaries.OIDC)
-	}
-	if raw, ok := settings[SettingKeyWeChatConnectEnabled]; ok && strings.TrimSpace(raw) != "" {
-		if raw != "true" {
-			disableIdentityBindAction(&summaries.WeChat)
-			return
-		}
-		openEnabled, mpEnabled, _ := parseWeChatConnectCapabilitySettings(settings, true, settings[SettingKeyWeChatConnectMode])
-		if !openEnabled && !mpEnabled {
-			disableIdentityBindAction(&summaries.WeChat)
-		}
-	}
-}
-
-func disableIdentityBindAction(summary *UserIdentitySummary) {
-	if summary == nil || summary.Bound {
-		return
-	}
-	summary.CanBind = false
-	summary.BindStartPath = ""
-}
-
-func (s *UserService) PrepareIdentityBindingStart(_ context.Context, req StartUserIdentityBindingRequest) (*StartUserIdentityBindingResult, error) {
-	provider := normalizeUserIdentityProvider(req.Provider)
-	if provider == "" {
-		return nil, ErrIdentityProviderInvalid
-	}
-
-	authorizeURL, err := buildUserIdentityBindAuthorizeURL(provider, req.RedirectTo)
-	if err != nil {
-		return nil, err
-	}
-
-	return &StartUserIdentityBindingResult{
-		Provider:           provider,
-		AuthorizeURL:       authorizeURL,
-		Method:             "GET",
-		UseBrowserRedirect: true,
-	}, nil
-}
-
-func (s *UserService) UnbindUserAuthProvider(ctx context.Context, userID int64, provider string) (*User, error) {
-	user, _, err := s.UnbindUserAuthProviderWithResult(ctx, userID, provider)
-	return user, err
-}
-
-func (s *UserService) UnbindUserAuthProviderWithResult(ctx context.Context, userID int64, provider string) (*User, bool, error) {
-	provider = normalizeUserIdentityProvider(provider)
-	if provider == "" || provider == "email" {
-		return nil, false, ErrIdentityProviderInvalid
-	}
-
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, false, fmt.Errorf("get user: %w", err)
-	}
-
-	records, err := s.listUserAuthIdentities(ctx, userID)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(filterUserAuthIdentities(records, provider)) == 0 {
-		return user, false, nil
-	}
-	if !s.canUnbindProvider(provider, user, records) {
-		return nil, false, ErrIdentityUnbindLastMethod
-	}
-
-	if err := s.userRepo.UnbindUserAuthProvider(ctx, userID, provider); err != nil {
-		return nil, false, err
-	}
-	if s.authCacheInvalidator != nil {
-		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-
-	updatedUser, err := s.GetProfile(ctx, userID)
-	if err != nil {
-		return nil, false, err
-	}
-	return updatedUser, true, nil
-}
-
 // UpdateProfile 更新用户资料
 func (s *UserService) UpdateProfile(ctx context.Context, userID int64, req UpdateProfileRequest) (*User, error) {
-	if txRunner, ok := s.userRepo.(userProfileIdentityTxRunner); ok {
+	if txRunner, ok := s.userRepo.(userProfileTxRunner); ok {
 		var (
 			updated        *User
 			oldConcurrency int
 		)
-		if err := txRunner.WithUserProfileIdentityTx(ctx, func(txCtx context.Context) error {
+		if err := txRunner.WithUserProfileTx(ctx, func(txCtx context.Context) error {
 			var err error
 			updated, oldConcurrency, err = s.updateProfile(txCtx, userID, req)
 			return err
@@ -506,18 +250,6 @@ func (s *UserService) updateProfile(ctx context.Context, userID int64, req Updat
 	var fields UserUpdateFields
 
 	// 更新字段
-	if req.Email != nil {
-		// 检查新邮箱是否已被使用
-		exists, err := s.userRepo.ExistsByEmail(ctx, *req.Email)
-		if err != nil {
-			return nil, oldConcurrency, fmt.Errorf("check email exists: %w", err)
-		}
-		if exists && *req.Email != user.Email {
-			return nil, oldConcurrency, ErrEmailExists
-		}
-		user.Email = *req.Email
-		fields.Email = true
-	}
 
 	if req.Username != nil {
 		user.Username = *req.Username
@@ -704,367 +436,16 @@ func compressInlineAvatar(decoded []byte) ([]byte, string, error) {
 	return nil, "", ErrAvatarTooLarge
 }
 
-func (s *UserService) buildEmailIdentitySummary(user *User, records []UserAuthIdentityRecord) UserIdentitySummary {
-	summary := UserIdentitySummary{
-		Provider:  "email",
-		CanBind:   false,
-		CanUnbind: false,
-		NoteKey:   userIdentityNoteEmailManagedFromProfile,
-		Note:      "Primary account email is managed from the profile form.",
-	}
-	if user == nil {
-		return summary
-	}
-
-	filtered := filterUserAuthIdentities(records, "email")
-	if len(filtered) > 0 {
-		primary := selectPrimaryUserAuthIdentity(filtered)
-		email := strings.TrimSpace(firstStringIdentityValue(primary.Metadata, "email"))
-		if email == "" {
-			email = strings.TrimSpace(primary.ProviderSubject)
-		}
-		if email == "" || isReservedEmail(email) {
-			email = strings.TrimSpace(user.Email)
-		}
-		if email == "" || isReservedEmail(email) {
-			email = strings.TrimSpace(primary.ProviderKey)
-		}
-
-		summary.Bound = true
-		summary.BoundCount = len(filtered)
-		summary.DisplayName = email
-		summary.SubjectHint = maskEmailIdentity(email)
-		summary.ProviderKey = strings.TrimSpace(primary.ProviderKey)
-		summary.VerifiedAt = primary.VerifiedAt
-		return summary
-	}
-
-	// Compatibility fallback for legacy normal-email users that predate auth_identities backfill.
-	email := strings.TrimSpace(user.Email)
-	if email == "" || isReservedEmail(email) {
-		return summary
-	}
-	summary.Bound = true
-	summary.BoundCount = 1
-	summary.DisplayName = email
-	summary.SubjectHint = maskEmailIdentity(email)
-	summary.ProviderKey = "email"
-	return summary
-}
-
-func (s *UserService) buildProviderIdentitySummary(provider string, user *User, records []UserAuthIdentityRecord) UserIdentitySummary {
-	summary := UserIdentitySummary{
-		Provider:  provider,
-		CanUnbind: false,
-	}
-	filtered := filterUserAuthIdentities(records, provider)
-	if len(filtered) == 0 {
-		summary.CanBind = true
-		bindStartPath, err := buildUserIdentityBindAuthorizeURL(provider, "")
-		if err == nil {
-			summary.BindStartPath = bindStartPath
-		}
-		return summary
-	}
-
-	primary := selectPrimaryUserAuthIdentity(filtered)
-	summary.Bound = true
-	summary.BoundCount = len(filtered)
-	summary.DisplayName = userAuthIdentityDisplayName(primary)
-	summary.AvatarURL = strings.TrimSpace(firstStringIdentityValue(primary.Metadata, "avatar_url", "suggested_avatar_url", "headimgurl"))
-	summary.SubjectHint = maskOpaqueIdentity(primary.ProviderSubject)
-	summary.ProviderKey = strings.TrimSpace(primary.ProviderKey)
-	summary.VerifiedAt = primary.VerifiedAt
-	summary.CanUnbind = s.canUnbindProvider(provider, user, records)
-	if summary.CanUnbind {
-		summary.NoteKey = userIdentityNoteCanUnbind
-		summary.Note = "You can unbind this sign-in method."
-	} else {
-		summary.NoteKey = userIdentityNoteBindAnotherBeforeUnbind
-		summary.Note = "Bind another sign-in method before unbinding."
-	}
-	return summary
-}
-
-func (s *UserService) canUnbindProvider(provider string, user *User, records []UserAuthIdentityRecord) bool {
-	if provider == "" || provider == "email" || len(filterUserAuthIdentities(records, provider)) == 0 {
-		return false
-	}
-
-	if s.canUseEmailAsSignInMethod(user, records) {
-		return true
-	}
-
-	for _, candidate := range []string{"linuxdo", "oidc", "wechat", "dingtalk"} {
-		if candidate == provider {
-			continue
-		}
-		if len(filterUserAuthIdentities(records, candidate)) > 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (s *UserService) canUseEmailAsSignInMethod(user *User, records []UserAuthIdentityRecord) bool {
-	if user == nil {
-		return false
-	}
-
-	email := strings.ToLower(strings.TrimSpace(user.Email))
-	if email == "" || isReservedEmail(email) {
-		return false
-	}
-
-	if emailSignupSourceAllowsLogin(user.SignupSource) {
-		return true
-	}
-
-	for _, record := range filterUserAuthIdentities(records, "email") {
-		if emailIdentitySupportsSignIn(record) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func emailSignupSourceAllowsLogin(signupSource string) bool {
-	signupSource = strings.ToLower(strings.TrimSpace(signupSource))
-	return signupSource == "" || signupSource == "email"
-}
-
-func emailIdentitySupportsSignIn(record UserAuthIdentityRecord) bool {
-	source := strings.TrimSpace(firstStringIdentityValue(record.Metadata, "source"))
-	switch source {
-	case "auth_service_email_bind", "auth_service_login_backfill", "auth_service_dual_write":
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *UserService) listUserAuthIdentities(ctx context.Context, userID int64) ([]UserAuthIdentityRecord, error) {
-	if userID <= 0 || s == nil || s.userRepo == nil {
-		return nil, nil
-	}
-	return s.userRepo.ListUserAuthIdentities(ctx, userID)
-}
-
-func buildUserIdentityBindAuthorizeURL(provider, redirectTo string) (string, error) {
-	provider = normalizeUserIdentityProvider(provider)
-	if provider == "" || provider == "email" {
-		return "", ErrIdentityProviderInvalid
-	}
-
-	redirectTo, err := normalizeUserIdentityRedirect(redirectTo)
-	if err != nil {
-		return "", err
-	}
-
-	path := ""
-	switch provider {
-	case "linuxdo":
-		path = "/api/v1/auth/oauth/linuxdo/bind/start"
-	case "oidc":
-		path = "/api/v1/auth/oauth/oidc/bind/start"
-	case "wechat":
-		path = "/api/v1/auth/oauth/wechat/bind/start"
-	case "dingtalk":
-		path = "/api/v1/auth/oauth/dingtalk/bind/start"
-	default:
-		return "", ErrIdentityProviderInvalid
-	}
-
-	query := url.Values{}
-	query.Set("redirect", redirectTo)
-	query.Set("intent", "bind_current_user")
-	return path + "?" + query.Encode(), nil
-}
-
-func normalizeUserIdentityProvider(provider string) string {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "linuxdo":
-		return "linuxdo"
-	case "oidc":
-		return "oidc"
-	case "wechat":
-		return "wechat"
-	case "dingtalk":
-		return "dingtalk"
-	case "email":
-		return "email"
-	default:
-		return ""
-	}
-}
-
-func normalizeUserIdentityRedirect(raw string) (string, error) {
-	redirect := strings.TrimSpace(raw)
-	if redirect == "" {
-		return defaultUserIdentityRedirect, nil
-	}
-	if len(redirect) > 2048 || !strings.HasPrefix(redirect, "/") || strings.HasPrefix(redirect, "//") {
-		return "", ErrIdentityRedirectInvalid
-	}
-	return redirect, nil
-}
-
-func filterUserAuthIdentities(records []UserAuthIdentityRecord, provider string) []UserAuthIdentityRecord {
-	if len(records) == 0 {
-		return nil
-	}
-	filtered := make([]UserAuthIdentityRecord, 0, len(records))
-	for _, record := range records {
-		if strings.EqualFold(strings.TrimSpace(record.ProviderType), provider) {
-			filtered = append(filtered, record)
-		}
-	}
-	return filtered
-}
-
-func selectPrimaryUserAuthIdentity(records []UserAuthIdentityRecord) UserAuthIdentityRecord {
-	if len(records) == 0 {
-		return UserAuthIdentityRecord{}
-	}
-	sort.SliceStable(records, func(i, j int) bool {
-		left := userAuthIdentitySortTime(records[i])
-		right := userAuthIdentitySortTime(records[j])
-		if !left.Equal(right) {
-			return left.After(right)
-		}
-		return records[i].ProviderKey < records[j].ProviderKey
-	})
-	return records[0]
-}
-
-func userAuthIdentitySortTime(record UserAuthIdentityRecord) time.Time {
-	if record.VerifiedAt != nil && !record.VerifiedAt.IsZero() {
-		return record.VerifiedAt.UTC()
-	}
-	if !record.UpdatedAt.IsZero() {
-		return record.UpdatedAt.UTC()
-	}
-	if !record.CreatedAt.IsZero() {
-		return record.CreatedAt.UTC()
-	}
-	return time.Time{}
-}
-
-func userAuthIdentityDisplayName(record UserAuthIdentityRecord) string {
-	if displayName := firstStringIdentityValue(record.Metadata,
-		"display_name",
-		"suggested_display_name",
-		"username",
-		"name",
-		"nickname",
-		"email",
-	); displayName != "" {
-		return displayName
-	}
-	if subject := strings.TrimSpace(record.ProviderSubject); subject != "" {
-		return subject
-	}
-	return strings.TrimSpace(record.ProviderType)
-}
-
-func firstStringIdentityValue(values map[string]any, keys ...string) string {
-	for _, key := range keys {
-		raw, ok := values[key]
-		if !ok {
-			continue
-		}
-		switch value := raw.(type) {
-		case string:
-			if trimmed := strings.TrimSpace(value); trimmed != "" {
-				return trimmed
-			}
-		case fmt.Stringer:
-			if trimmed := strings.TrimSpace(value.String()); trimmed != "" {
-				return trimmed
-			}
-		}
-	}
-	return ""
-}
-
-func maskEmailIdentity(email string) string {
-	local, domain, ok := strings.Cut(strings.TrimSpace(email), "@")
-	if !ok || local == "" || domain == "" {
-		return maskOpaqueIdentity(email)
-	}
-	runes := []rune(local)
-	if len(runes) == 1 {
-		return string(runes[0]) + "***@" + domain
-	}
-	return string(runes[0]) + "***" + string(runes[len(runes)-1]) + "@" + domain
-}
-
-func maskOpaqueIdentity(value string) string {
-	value = strings.TrimSpace(value)
-	runes := []rune(value)
-	switch {
-	case len(runes) == 0:
-		return ""
-	case len(runes) <= 4:
-		return string(runes[0]) + "***"
-	case len(runes) <= 8:
-		return string(runes[:2]) + "***" + string(runes[len(runes)-1:])
-	default:
-		return string(runes[:3]) + "***" + string(runes[len(runes)-3:])
-	}
-}
-
-// ChangePassword 修改密码
-// Security: Increments TokenVersion to invalidate all existing JWT tokens
-func (s *UserService) ChangePassword(ctx context.Context, userID int64, req ChangePasswordRequest) error {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("get user: %w", err)
-	}
-
-	// 验证当前密码
-	if !user.CheckPassword(req.CurrentPassword) {
-		return ErrPasswordIncorrect
-	}
-
-	if err := user.SetPassword(req.NewPassword); err != nil {
-		return fmt.Errorf("set password: %w", err)
-	}
-
-	// Increment TokenVersion to invalidate all existing tokens
-	// This ensures that any tokens issued before the password change become invalid
-	user.TokenVersion++
-
-	// TokenVersion 没有对应的数据库列（见 resolvedTokenVersion：它由 email+password_hash
-	// 指纹推导），改密写回 password_hash 即可让旧 token 失效。
-	if err := s.userRepo.Update(ctx, user, UserUpdateFields{PasswordHash: true}); err != nil {
-		return fmt.Errorf("update user: %w", err)
-	}
-
-	return nil
-}
-
 // GetByID 根据ID获取用户（管理员功能）
 func (s *UserService) GetByID(ctx context.Context, id int64) (*User, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	normalizeLoadedUserTokenVersion(user)
 	if err := s.hydrateUserAvatar(ctx, user); err != nil {
 		return nil, fmt.Errorf("get user avatar: %w", err)
 	}
 	return user, nil
-}
-
-func normalizeLoadedUserTokenVersion(user *User) {
-	if user == nil || user.TokenVersionResolved {
-		return
-	}
-	user.TokenVersion = resolvedTokenVersion(user)
-	user.TokenVersionResolved = true
 }
 
 // TouchLastActive 通过防抖更新 users.last_active_at，减少鉴权热路径写放大。
@@ -1181,36 +562,6 @@ func (s *UserService) UpdateConcurrency(ctx context.Context, userID int64, concu
 	}
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-	return nil
-}
-
-// UpdateStatus 更新用户状态（管理员功能）
-func (s *UserService) UpdateStatus(ctx context.Context, userID int64, status string) error {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("get user: %w", err)
-	}
-
-	user.Status = status
-
-	if err := s.userRepo.Update(ctx, user, UserUpdateFields{Status: true}); err != nil {
-		return fmt.Errorf("update user: %w", err)
-	}
-	if s.authCacheInvalidator != nil {
-		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-
-	return nil
-}
-
-// Delete 删除用户（管理员功能）
-func (s *UserService) Delete(ctx context.Context, userID int64) error {
-	if s.authCacheInvalidator != nil {
-		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
-	}
-	if err := s.userRepo.Delete(ctx, userID); err != nil {
-		return fmt.Errorf("delete user: %w", err)
 	}
 	return nil
 }
@@ -1438,4 +789,15 @@ const notifyVerifyEmailTemplate = `<!DOCTYPE html>
 // buildNotifyVerifyEmailBody builds the HTML email body for notify email verification.
 func buildNotifyVerifyEmailBody(code, siteName string) string {
 	return fmt.Sprintf(notifyVerifyEmailTemplate, siteName, code)
+}
+
+func (s *UserService) GetProfile(ctx context.Context, userID int64) (*User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if err := s.hydrateUserAvatar(ctx, user); err != nil {
+		return nil, fmt.Errorf("get user avatar: %w", err)
+	}
+	return user, nil
 }

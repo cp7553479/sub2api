@@ -10,25 +10,12 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { useAdminComplianceStore } from '@/stores/adminCompliance'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
-import { getSetupStatus } from '@/api/setup'
-import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
 
 /**
  * Route definitions with lazy loading
  */
 const routes: RouteRecordRaw[] = [
-  // ==================== Setup Routes ====================
-  {
-    path: '/setup',
-    name: 'Setup',
-    component: () => import('@/views/setup/SetupWizardView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Setup'
-    }
-  },
-
   // ==================== Public Routes ====================
   {
     path: '/home',
@@ -60,46 +47,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/email-verify',
-    name: 'EmailVerify',
-    component: () => import('@/views/auth/EmailVerifyView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Verify Email'
-    }
-  },
-  {
-    path: '/auth/callback',
-    name: 'OAuthCallback',
-    alias: '/auth/oauth/callback',
-    component: () => import('@/views/auth/OAuthCallbackView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'OAuth Callback',
-      titleKey: 'auth.oauthCallbackPageTitle'
-    }
-  },
-  {
-    path: '/auth/linuxdo/callback',
-    name: 'LinuxDoOAuthCallback',
-    component: () => import('@/views/auth/LinuxDoCallbackView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'LinuxDo OAuth Callback',
-      titleKey: 'auth.linuxdoCallbackPageTitle'
-    }
-  },
-  {
-    path: '/auth/wechat/callback',
-    name: 'WeChatOAuthCallback',
-    component: () => import('@/views/auth/WechatCallbackView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'WeChat OAuth Callback',
-      titleKey: 'auth.wechatCallbackPageTitle'
-    }
-  },
-  {
     path: '/auth/wechat/payment/callback',
     name: 'WeChatPaymentOAuthCallback',
     component: () => import('@/views/auth/WechatPaymentCallbackView.vue'),
@@ -107,54 +54,6 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false,
       title: 'WeChat Payment Callback',
       titleKey: 'auth.wechatPaymentCallbackPageTitle'
-    }
-  },
-  {
-    path: '/auth/dingtalk/callback',
-    name: 'DingTalkOAuthCallback',
-    component: () => import('@/views/auth/DingTalkCallbackView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'DingTalk OAuth Callback',
-      titleKey: 'auth.dingtalkCallbackPageTitle'
-    }
-  },
-  {
-    path: '/auth/dingtalk/email-completion',
-    name: 'dingtalk-email-completion',
-    component: () => import('@/views/auth/DingTalkEmailCompletionView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'DingTalk Email Completion'
-    }
-  },
-  {
-    path: '/auth/oidc/callback',
-    name: 'OIDCOAuthCallback',
-    component: () => import('@/views/auth/OidcCallbackView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'OIDC OAuth Callback',
-      titleKey: 'auth.oidcCallbackPageTitle'
-    }
-  },
-  {
-    path: '/forgot-password',
-    name: 'ForgotPassword',
-    component: () => import('@/views/auth/ForgotPasswordView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Forgot Password',
-      titleKey: 'auth.forgotPasswordTitle'
-    }
-  },
-  {
-    path: '/reset-password',
-    name: 'ResetPassword',
-    component: () => import('@/views/auth/ResetPasswordView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Reset Password'
     }
   },
   {
@@ -274,29 +173,6 @@ const routes: RouteRecordRaw[] = [
       title: 'Available Channels',
       titleKey: 'availableChannels.title',
       descriptionKey: 'availableChannels.description'
-    }
-  },
-  {
-    path: '/settings/mcp',
-    name: 'MCP',
-    component: () => import('@/views/user/MCPView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'MCP Connection',
-      titleKey: 'mcp.title',
-      descriptionKey: 'mcp.description'
-    }
-  },
-  {
-    path: '/oauth/mcp/authorize',
-    name: 'MCPOAuthAuthorize',
-    component: () => import('@/views/auth/MCPOAuthAuthorizeView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Authorize MCP Application',
-      titleKey: 'mcp.consentTitle'
     }
   },
   {
@@ -774,32 +650,10 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
-const BACKEND_MODE_CALLBACK_PATHS = [
-  '/auth/callback',
-  '/auth/linuxdo/callback',
-  '/auth/dingtalk/callback',
-  '/auth/dingtalk/email-completion',
-  '/auth/oidc/callback',
-  '/auth/wechat/callback',
-  '/auth/wechat/payment/callback',
-]
-const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/register', '/key-usage', '/payment/result', '/payment/airwallex', '/legal', '/auth/wechat/payment/callback']
 
-function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
-  if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {
-    return true
-  }
-
-  if (BACKEND_MODE_CALLBACK_PATHS.some((callbackPath) => path === callbackPath)) {
-    return true
-  }
-
-  if (hasPendingAuthSession && BACKEND_MODE_PENDING_AUTH_PATHS.some((allowedPath) => path === allowedPath)) {
-    return true
-  }
-
-  return false
+function isBackendModePublicRouteAllowed(path: string): boolean {
+  return BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(`${allowedPath}/`))
 }
 
 router.beforeEach(async (to, _from, next) => {
@@ -810,7 +664,11 @@ router.beforeEach(async (to, _from, next) => {
 
   // Restore auth state from localStorage on first navigation (page refresh)
   if (!authInitialized) {
-    authStore.checkAuth()
+    try {
+      await authStore.checkAuth()
+    } catch (error) {
+      console.error('Session restoration failed:', error)
+    }
     authInitialized = true
   }
 
@@ -826,18 +684,6 @@ router.beforeEach(async (to, _from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
   const requiresAdmin = to.meta.requiresAdmin === true
-
-  if (to.path === '/setup') {
-    try {
-      const status = await getSetupStatus()
-      if (!status.needs_setup) {
-        next(resolveCompletedSetupRedirectPath(authStore.isAuthenticated, authStore.isAdmin))
-        return
-      }
-    } catch {
-      // If setup status cannot be determined, keep the setup page reachable.
-    }
-  }
 
   // If route doesn't require auth, allow access
   if (!requiresAuth) {
@@ -884,9 +730,9 @@ router.beforeEach(async (to, _from, next) => {
         return
       }
     }
-    // Backend mode: block public pages for unauthenticated users (except login, key-usage, setup)
+    // Backend mode: block public pages for unauthenticated users (except platform sign-in and business payment surfaces)
     if (appStore.backendModeEnabled && !authStore.isAuthenticated) {
-      const isAllowed = isBackendModePublicRouteAllowed(to.path, authStore.hasPendingAuthSession)
+      const isAllowed = isBackendModePublicRouteAllowed(to.path)
       if (!isAllowed) {
         next('/login')
         return
@@ -991,7 +837,7 @@ router.beforeEach(async (to, _from, next) => {
       next()
       return
     }
-    const isAllowed = isBackendModePublicRouteAllowed(to.path, authStore.hasPendingAuthSession)
+    const isAllowed = isBackendModePublicRouteAllowed(to.path)
     if (!isAllowed) {
       next('/login')
       return

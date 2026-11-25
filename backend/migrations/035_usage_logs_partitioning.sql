@@ -14,7 +14,7 @@ BEGIN
         SELECT 1
         FROM pg_partitioned_table pt
         JOIN pg_class c ON c.oid = pt.partrelid
-        WHERE c.relname = 'usage_logs'
+        WHERE c.oid = 'usage_logs'::regclass
     ) INTO is_partitioned;
 
     IF NOT is_partitioned THEN

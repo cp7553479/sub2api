@@ -2,6 +2,7 @@ package schema
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -35,6 +36,7 @@ func (User) Mixin() []ent.Mixin {
 
 func (User) Fields() []ent.Field {
 	return []ent.Field{
+		field.UUID("supabase_user_id", uuid.UUID{}).Optional().Nillable().Unique(),
 		// 唯一约束通过部分索引实现（WHERE deleted_at IS NULL），支持软删除后重用
 		// 见迁移文件 016_soft_delete_partial_unique_indexes.sql
 		field.String("email").
@@ -42,7 +44,7 @@ func (User) Fields() []ent.Field {
 			NotEmpty(),
 		field.String("password_hash").
 			MaxLen(255).
-			NotEmpty(),
+			Optional(),
 		field.String("role").
 			MaxLen(20).
 			Default(domain.RoleUser),

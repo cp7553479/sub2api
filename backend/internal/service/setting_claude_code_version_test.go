@@ -28,10 +28,8 @@ func TestGetClaudeCodeClientVersionPriority(t *testing.T) {
 		{name: "未配置时回退", want: claude.CLIVersion()},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := &authSourceDefaultsRepoStub{values: map[string]string{
-				SettingKeyClaudeCodeClientVersion:       tt.manual,
-				SettingKeyClaudeCodeClientVersionSynced: tt.synced,
-			}}
+			repo := &businessSettingsFixture{values: map[string]string{SettingKeyClaudeCodeClientVersion: tt.manual, SettingKeyClaudeCodeClientVersionSynced: tt.synced}}
+
 			svc := NewSettingService(repo, &config.Config{})
 			require.Equal(t, tt.want, svc.GetClaudeCodeClientVersion(context.Background()))
 		})
@@ -40,9 +38,8 @@ func TestGetClaudeCodeClientVersionPriority(t *testing.T) {
 
 func TestUpdateSettingsClaudeCodeVersionTakesEffectImmediately(t *testing.T) {
 	ctx := context.Background()
-	repo := &authSourceDefaultsRepoStub{values: map[string]string{
-		SettingKeyClaudeCodeClientVersionSynced: claudeCodeTestVersion(2),
-	}}
+	repo := &businessSettingsFixture{values: map[string]string{SettingKeyClaudeCodeClientVersionSynced: claudeCodeTestVersion(2)}}
+
 	svc := NewSettingService(repo, &config.Config{})
 	resetGatewayForwardingSettingsCacheForTest(t)
 	defer svc.refreshCachedSettings(&SystemSettings{})

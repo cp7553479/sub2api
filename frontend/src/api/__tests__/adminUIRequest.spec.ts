@@ -47,13 +47,9 @@ describe('User UI request marker', () => {
 
   it.each([
     '/auth/me',
-    '/auth/revoke-all-sessions',
-    '/auth/oauth/bind-token',
     '/user',
     '/user/profile',
-    '/user/password',
     '/user/notify-email/send-code',
-    '/user/totp/status',
     '/user/aff',
     '/user/platform-quotas',
     '/keys',

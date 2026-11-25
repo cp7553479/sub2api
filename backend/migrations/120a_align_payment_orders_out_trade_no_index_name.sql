@@ -3,14 +3,14 @@ BEGIN
     IF EXISTS (
         SELECT 1
         FROM pg_indexes
-        WHERE schemaname = 'public'
+        WHERE schemaname = current_schema()
           AND tablename = 'payment_orders'
           AND indexname = 'paymentorder_out_trade_no_unique'
     ) THEN
         IF EXISTS (
             SELECT 1
             FROM pg_indexes
-            WHERE schemaname = 'public'
+            WHERE schemaname = current_schema()
               AND tablename = 'payment_orders'
               AND indexname = 'paymentorder_out_trade_no'
         ) THEN

@@ -21,7 +21,7 @@ func newRedeemAdjustmentRepoMock(t *testing.T) (*userRepository, sqlmock.Sqlmock
 	driver := entsql.OpenDB(dialect.Postgres, db)
 	client := dbent.NewClient(dbent.Driver(driver))
 	t.Cleanup(func() { _ = client.Close() })
-	return newUserRepositoryWithSQL(client, db), mock
+	return newUserRepositoryWithSQL(client, db, "test_platform"), mock
 }
 
 func TestApplyRedeemBalanceAdjustment_UsesAtomicFloor(t *testing.T) {

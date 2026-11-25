@@ -49,7 +49,7 @@ func TestProxySampleSQLRandomizesWholePoolBeforeLimit(t *testing.T) {
 }
 
 func TestProxySamplePostgresLargePoolAndEligibility(t *testing.T) {
-	db := scopedAdminKeyTestDB(t)
+	db := proxyOptionsTestDB(t)
 	_, err := db.Exec(`CREATE TABLE proxies(
  id BIGINT PRIMARY KEY,name TEXT DEFAULT 'pool',protocol TEXT DEFAULT 'http',host TEXT DEFAULT '192.0.2.1',port INT DEFAULT 8080,
  username TEXT DEFAULT 'SECRET_USER',password TEXT DEFAULT 'SECRET_PASSWORD',status TEXT DEFAULT 'active',

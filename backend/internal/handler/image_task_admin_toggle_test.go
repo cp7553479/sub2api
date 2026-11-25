@@ -68,7 +68,7 @@ func TestAsyncImageEnablesWithoutRestart(t *testing.T) {
 	repo := &toggleSettingRepo{values: map[string]string{}}
 	// A fixed encryption key is required to persist a new S3 secret (#4524).
 	backup := service.NewBackupService(repo, &config.Config{
-		Totp: config.TotpConfig{EncryptionKeyConfigured: true},
+		Secrets: config.SecretsConfig{EncryptionKeyConfigured: true},
 	}, passthroughEncryptor{}, nil, nil)
 	factory := func(context.Context, *config.ImageStorageConfig) (service.ImageStorage, error) {
 		return noopImageStorage{}, nil

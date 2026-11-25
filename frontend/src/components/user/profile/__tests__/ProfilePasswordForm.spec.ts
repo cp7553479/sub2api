@@ -9,8 +9,8 @@ const { changePasswordMock, showSuccessMock, showErrorMock } = vi.hoisted(() => 
 }))
 
 vi.mock('@/api', () => ({
-  userAPI: {
-    changePassword: changePasswordMock
+  authAPI: {
+    updateAccount: changePasswordMock
   }
 }))
 
@@ -50,7 +50,6 @@ describe('ProfilePasswordForm', () => {
   it('shows validation failures as toast messages instead of inline errors', async () => {
     const wrapper = mount(ProfilePasswordForm)
 
-    await wrapper.get('#old_password').setValue('old-password')
     await wrapper.get('#new_password').setValue('new-password')
     await wrapper.get('#confirm_password').setValue('different-password')
     await wrapper.get('form').trigger('submit.prevent')
@@ -61,7 +60,7 @@ describe('ProfilePasswordForm', () => {
   })
 
   it.each([
-    [{ status: 400, code: 'PASSWORD_INCORRECT', message: 'current password is incorrect' }, 'current password is incorrect'],
+    [{ status: 400, message: 'platform password policy rejected' }, 'platform password policy rejected'],
     [{ response: { data: { detail: 'backend failure' } } }, 'backend failure'],
     [{}, 'Failed to change password'],
   ])('shows API failure %j as a toast', async (error, expectedMessage) => {
@@ -69,12 +68,11 @@ describe('ProfilePasswordForm', () => {
 
     const wrapper = mount(ProfilePasswordForm)
 
-    await wrapper.get('#old_password').setValue('old-password')
     await wrapper.get('#new_password').setValue('new-password')
     await wrapper.get('#confirm_password').setValue('new-password')
     await wrapper.get('form').trigger('submit.prevent')
 
-    expect(changePasswordMock).toHaveBeenCalledWith('old-password', 'new-password')
+    expect(changePasswordMock).toHaveBeenCalledWith({ password: 'new-password' })
     expect(showErrorMock).toHaveBeenLastCalledWith(expectedMessage)
     expect(wrapper.find('.input-error-text').exists()).toBe(false)
   })

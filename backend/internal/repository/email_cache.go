@@ -12,11 +12,8 @@ import (
 )
 
 const (
-	verifyCodeKeyPrefix          = "verify_code:"
-	notifyVerifyKeyPrefix        = "notify_verify:"
-	passwordResetKeyPrefix       = "password_reset:"
-	passwordResetSentAtKeyPrefix = "password_reset_sent:"
-	notifyCodeUserRateKeyPrefix  = "notify_code_user_rate:"
+	notifyVerifyKeyPrefix       = "notify_verify:"
+	notifyCodeUserRateKeyPrefix = "notify_code_user_rate:"
 
 	// attemptsKeySuffix stores the failed-attempt counter next to a verification code.
 	// Kept in a separate key so it can be incremented atomically with INCR.
@@ -38,42 +35,11 @@ end
 return n
 `)
 
-// consumeResetTokenScript atomically compares the stored token hash and deletes it.
-// KEYS[1] = reset key, ARGV[1] = expected token hash. Returns 1 on success, 0 otherwise.
-var consumeResetTokenScript = redis.NewScript(`
-local v = redis.call('GET', KEYS[1])
-if not v then
-  return 0
-end
-local ok, d = pcall(cjson.decode, v)
-if not ok or type(d) ~= 'table' or d['Token'] ~= ARGV[1] then
-  return 0
-end
-redis.call('DEL', KEYS[1])
-return 1
-`)
-
-// verifyCodeKey generates the Redis key for email verification code.
-// Email is lowercased for case-insensitive consistency.
-func verifyCodeKey(email string) string {
-	return verifyCodeKeyPrefix + strings.ToLower(email)
-}
-
 // notifyVerifyKey generates the Redis key for notify email verification code.
 // Email is lowercased to prevent case-sensitive key mismatch (the business layer
 // uses strings.EqualFold for comparison).
 func notifyVerifyKey(email string) string {
 	return notifyVerifyKeyPrefix + strings.ToLower(email)
-}
-
-// passwordResetKey generates the Redis key for password reset token.
-func passwordResetKey(email string) string {
-	return passwordResetKeyPrefix + strings.ToLower(email)
-}
-
-// passwordResetSentAtKey generates the Redis key for password reset email sent timestamp.
-func passwordResetSentAtKey(email string) string {
-	return passwordResetSentAtKeyPrefix + strings.ToLower(email)
 }
 
 type emailCache struct {
@@ -129,73 +95,9 @@ func (c *emailCache) deleteCode(ctx context.Context, key string) error {
 	return c.rdb.Del(ctx, key, key+attemptsKeySuffix).Err()
 }
 
-func (c *emailCache) GetVerificationCode(ctx context.Context, email string) (*service.VerificationCodeData, error) {
-	return c.getCode(ctx, verifyCodeKey(email))
-}
-
-func (c *emailCache) SetVerificationCode(ctx context.Context, email string, data *service.VerificationCodeData, ttl time.Duration) error {
-	return c.setCode(ctx, verifyCodeKey(email), data, ttl)
-}
-
-func (c *emailCache) IncrVerificationCodeAttempts(ctx context.Context, email string) (int, error) {
-	return c.incrCodeAttempts(ctx, verifyCodeKey(email))
-}
-
-func (c *emailCache) DeleteVerificationCode(ctx context.Context, email string) error {
-	return c.deleteCode(ctx, verifyCodeKey(email))
-}
-
 // Password reset token methods
 
-func (c *emailCache) GetPasswordResetToken(ctx context.Context, email string) (*service.PasswordResetTokenData, error) {
-	key := passwordResetKey(email)
-	val, err := c.rdb.Get(ctx, key).Result()
-	if err != nil {
-		return nil, err
-	}
-	var data service.PasswordResetTokenData
-	if err := json.Unmarshal([]byte(val), &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
-}
-
-func (c *emailCache) SetPasswordResetToken(ctx context.Context, email string, data *service.PasswordResetTokenData, ttl time.Duration) error {
-	key := passwordResetKey(email)
-	val, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return c.rdb.Set(ctx, key, val, ttl).Err()
-}
-
-// ConsumePasswordResetToken atomically deletes the stored reset token when its
-// stored hash equals tokenHash. Returns true only for the single winning caller.
-func (c *emailCache) ConsumePasswordResetToken(ctx context.Context, email, tokenHash string) (bool, error) {
-	n, err := consumeResetTokenScript.Run(ctx, c.rdb, []string{passwordResetKey(email)}, tokenHash).Int()
-	if err != nil {
-		return false, err
-	}
-	return n == 1, nil
-}
-
-func (c *emailCache) DeletePasswordResetToken(ctx context.Context, email string) error {
-	key := passwordResetKey(email)
-	return c.rdb.Del(ctx, key).Err()
-}
-
 // Password reset email cooldown methods
-
-func (c *emailCache) IsPasswordResetEmailInCooldown(ctx context.Context, email string) bool {
-	key := passwordResetSentAtKey(email)
-	exists, err := c.rdb.Exists(ctx, key).Result()
-	return err == nil && exists > 0
-}
-
-func (c *emailCache) SetPasswordResetEmailCooldown(ctx context.Context, email string, ttl time.Duration) error {
-	key := passwordResetSentAtKey(email)
-	return c.rdb.Set(ctx, key, "1", ttl).Err()
-}
 
 // Notify email verification code methods
 

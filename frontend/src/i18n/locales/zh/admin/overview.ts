@@ -494,6 +494,7 @@ export default {
 
     // Users Management
     users: {
+    platformAccountHint: '用户首次登录后将在此显示。',
       title: '用户管理',
       description: '管理用户账户和权限',
       createUser: '创建用户',

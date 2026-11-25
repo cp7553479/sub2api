@@ -45,6 +45,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_name = 'channel_monitors_body_mode_check'
+          AND table_schema = current_schema()
           AND table_name = 'channel_monitors'
     ) THEN
         ALTER TABLE channel_monitors
@@ -55,6 +56,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_name = 'channel_monitors_template_id_fkey'
+          AND table_schema = current_schema()
           AND table_name = 'channel_monitors'
     ) THEN
         ALTER TABLE channel_monitors

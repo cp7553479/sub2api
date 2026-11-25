@@ -23,9 +23,9 @@ func TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling(t *testing.T) {
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Balance:      100,
+		Email: fmt.Sprintf("usage-billing-user-%d@example.com", time.Now().UnixNano()),
+
+		Balance: 100,
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,
@@ -88,8 +88,7 @@ func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-sub-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
+		Email: fmt.Sprintf("usage-billing-sub-user-%d@example.com", time.Now().UnixNano()),
 	})
 	group := mustCreateGroup(t, client, &service.Group{
 		Name:             "usage-billing-group-" + uuid.NewString(),
@@ -136,9 +135,9 @@ func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-conflict-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Balance:      100,
+		Email: fmt.Sprintf("usage-billing-conflict-user-%d@example.com", time.Now().UnixNano()),
+
+		Balance: 100,
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,
@@ -170,9 +169,9 @@ func TestUsageBillingRepositoryApply_DeletedAPIKeyStillBillsBalance(t *testing.T
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-deleted-key-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Balance:      100,
+		Email: fmt.Sprintf("usage-billing-deleted-key-user-%d@example.com", time.Now().UnixNano()),
+
+		Balance: 100,
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID:      user.ID,
@@ -225,9 +224,9 @@ func TestUsageBillingRepositoryApply_DeletedAccountStillBillsBalance(t *testing.
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-deleted-account-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Balance:      100,
+		Email: fmt.Sprintf("usage-billing-deleted-account-user-%d@example.com", time.Now().UnixNano()),
+
+		Balance: 100,
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,
@@ -273,8 +272,7 @@ func TestUsageBillingRepositoryApply_UpdatesAccountQuota(t *testing.T) {
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-account-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
+		Email: fmt.Sprintf("usage-billing-account-user-%d@example.com", time.Now().UnixNano()),
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,
@@ -311,8 +309,7 @@ func TestUsageBillingRepositoryApply_UpdatesServiceAccountQuota(t *testing.T) {
 	repo := NewUsageBillingRepository(client, integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-sa-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
+		Email: fmt.Sprintf("usage-billing-sa-user-%d@example.com", time.Now().UnixNano()),
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,
@@ -366,8 +363,7 @@ func TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing(t *t
 	newFixture := func(t *testing.T, extra map[string]any) (int64, int64) {
 		t.Helper()
 		user := mustCreateUser(t, client, &service.User{
-			Email:        fmt.Sprintf("usage-billing-outbox-user-%d-%s@example.com", time.Now().UnixNano(), uuid.NewString()),
-			PasswordHash: "hash",
+			Email: fmt.Sprintf("usage-billing-outbox-user-%d-%s@example.com", time.Now().UnixNano(), uuid.NewString()),
 		})
 		apiKey := mustCreateApiKey(t, client, &service.APIKey{
 			UserID: user.ID,
@@ -620,9 +616,9 @@ func TestUsageBillingRepositoryApply_DeduplicatesAgainstArchivedKey(t *testing.T
 	aggRepo := newDashboardAggregationRepositoryWithSQL(integrationDB)
 
 	user := mustCreateUser(t, client, &service.User{
-		Email:        fmt.Sprintf("usage-billing-archive-user-%d@example.com", time.Now().UnixNano()),
-		PasswordHash: "hash",
-		Balance:      100,
+		Email: fmt.Sprintf("usage-billing-archive-user-%d@example.com", time.Now().UnixNano()),
+
+		Balance: 100,
 	})
 	apiKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID: user.ID,

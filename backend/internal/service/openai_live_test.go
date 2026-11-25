@@ -144,10 +144,10 @@ func TestCreateUpstreamLiveCallPreservesSession(t *testing.T) {
 
 func TestLiveAttestationCipherRoundTripAndRejectsOtherInstanceKey(t *testing.T) {
 	first := newLiveAttestationCipher(&config.Config{
-		JWT: config.JWTConfig{Secret: "first-live-secret"},
+		Secrets: config.SecretsConfig{EncryptionKey: "first-live-secret"},
 	})
 	second := newLiveAttestationCipher(&config.Config{
-		JWT: config.JWTConfig{Secret: "second-live-secret"},
+		Secrets: config.SecretsConfig{EncryptionKey: "second-live-secret"},
 	})
 	require.NotNil(t, first)
 	require.NotNil(t, second)
@@ -166,7 +166,7 @@ func TestLiveAttestationCipherRoundTripAndRejectsOtherInstanceKey(t *testing.T) 
 
 func TestPrepareLiveAttestationEncryptsHeaderAndReturnsExplicitProviderError(t *testing.T) {
 	cipher := newLiveAttestationCipher(&config.Config{
-		JWT: config.JWTConfig{Secret: "live-attestation-test-secret"},
+		Secrets: config.SecretsConfig{EncryptionKey: "live-attestation-test-secret"},
 	})
 	service := &OpenAIGatewayService{
 		liveAttestation:       liveAttestationStub{header: `{"v":1,"s":0,"t":"v1.test"}`},

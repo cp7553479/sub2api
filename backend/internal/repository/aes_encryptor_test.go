@@ -27,7 +27,7 @@ func aesHexKey(n int, b byte) string {
 // aesTestCfg 用给定 hex 密钥字符串构造最小 Config。
 func aesTestCfg(keyHex string) *config.Config {
 	return &config.Config{
-		Totp: config.TotpConfig{EncryptionKey: keyHex},
+		Secrets: config.SecretsConfig{EncryptionKey: keyHex},
 	}
 }
 
@@ -78,8 +78,8 @@ func TestNewAESEncryptor_MissingOrInvalidConfig(t *testing.T) {
 		wantContain string
 	}{
 		{"empty_key", "", "32 bytes"},
-		{"invalid_hex_odd_length", "abcde", "invalid totp encryption key"},
-		{"invalid_hex_chars", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "invalid totp encryption key"},
+		{"invalid_hex_odd_length", "abcde", "invalid secret encryption key"},
+		{"invalid_hex_chars", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "invalid secret encryption key"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

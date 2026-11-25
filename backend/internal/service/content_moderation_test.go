@@ -285,25 +285,15 @@ func (r *contentModerationTestUserRepo) RemoveGroupFromUserAllowedGroups(ctx con
 	panic("unexpected RemoveGroupFromUserAllowedGroups call")
 }
 
-func (r *contentModerationTestUserRepo) ListUserAuthIdentities(ctx context.Context, userID int64) ([]UserAuthIdentityRecord, error) {
-	panic("unexpected ListUserAuthIdentities call")
-}
 
-func (r *contentModerationTestUserRepo) UnbindUserAuthProvider(ctx context.Context, userID int64, provider string) error {
-	panic("unexpected UnbindUserAuthProvider call")
-}
 
-func (r *contentModerationTestUserRepo) UpdateTotpSecret(ctx context.Context, userID int64, encryptedSecret *string) error {
-	panic("unexpected UpdateTotpSecret call")
-}
 
-func (r *contentModerationTestUserRepo) EnableTotp(ctx context.Context, userID int64) error {
-	panic("unexpected EnableTotp call")
-}
 
-func (r *contentModerationTestUserRepo) DisableTotp(ctx context.Context, userID int64) error {
-	panic("unexpected DisableTotp call")
-}
+
+
+
+
+
 
 func (r *contentModerationTestUserRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*User, error) {
 	return r.GetByID(ctx, id)

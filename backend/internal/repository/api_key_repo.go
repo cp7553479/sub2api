@@ -937,7 +937,6 @@ func userEntityToService(u *dbent.User) *service.User {
 		Email:                      u.Email,
 		Username:                   u.Username,
 		Notes:                      u.Notes,
-		PasswordHash:               u.PasswordHash,
 		Role:                       u.Role,
 		Balance:                    u.Balance,
 		FrozenBalance:              u.FrozenBalance,
@@ -946,9 +945,6 @@ func userEntityToService(u *dbent.User) *service.User {
 		SignupSource:               u.SignupSource,
 		LastLoginAt:                u.LastLoginAt,
 		LastActiveAt:               u.LastActiveAt,
-		TotpSecretEncrypted:        u.TotpSecretEncrypted,
-		TotpEnabled:                u.TotpEnabled,
-		TotpEnabledAt:              u.TotpEnabledAt,
 		BalanceNotifyEnabled:       u.BalanceNotifyEnabled,
 		RestrictPublicGroups:       u.RestrictPublicGroups,
 		BalanceNotifyThresholdType: u.BalanceNotifyThresholdType,
@@ -958,6 +954,9 @@ func userEntityToService(u *dbent.User) *service.User {
 		CreatedAt:                  u.CreatedAt,
 		UpdatedAt:                  u.UpdatedAt,
 		DeletedAt:                  u.DeletedAt,
+	}
+	if u.SupabaseUserID != nil {
+		out.SupabaseUserID = u.SupabaseUserID.String()
 	}
 	// Parse extra emails JSON (supports both old []string and new []NotifyEmailEntry format)
 	if u.BalanceNotifyExtraEmails != "" && u.BalanceNotifyExtraEmails != "[]" {

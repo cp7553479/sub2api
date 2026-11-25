@@ -17,28 +17,28 @@ func TestVerifyCodeKey(t *testing.T) {
 		{
 			name:     "normal_email",
 			email:    "user@example.com",
-			expected: "verify_code:user@example.com",
+			expected: "notify_verify:user@example.com",
 		},
 		{
 			name:     "empty_email",
 			email:    "",
-			expected: "verify_code:",
+			expected: "notify_verify:",
 		},
 		{
 			name:     "email_with_plus",
 			email:    "user+tag@example.com",
-			expected: "verify_code:user+tag@example.com",
+			expected: "notify_verify:user+tag@example.com",
 		},
 		{
 			name:     "email_with_special_chars",
 			email:    "user.name+tag@sub.domain.com",
-			expected: "verify_code:user.name+tag@sub.domain.com",
+			expected: "notify_verify:user.name+tag@sub.domain.com",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := verifyCodeKey(tc.email)
+			got := notifyVerifyKey(tc.email)
 			require.Equal(t, tc.expected, got)
 		})
 	}

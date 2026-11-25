@@ -178,8 +178,12 @@ async function submit(): Promise<void> {
 }
 
 async function logout(): Promise<void> {
-  await authStore.logout()
-  window.location.href = '/login'
+  try {
+    await authStore.logout()
+    window.location.href = '/login'
+  } catch (error) {
+    appStore.showError((error as { message?: string }).message || t('auth.logoutFailed'))
+  }
 }
 </script>
 

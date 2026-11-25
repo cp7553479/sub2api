@@ -12,7 +12,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
-        WHERE conname = 'users_signup_source_check'
+        WHERE conrelid = 'users'::regclass AND conname = 'users_signup_source_check'
     ) THEN
         ALTER TABLE users
             ADD CONSTRAINT users_signup_source_check

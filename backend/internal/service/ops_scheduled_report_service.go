@@ -37,7 +37,7 @@ return 0
 
 type OpsScheduledReportService struct {
 	opsService   *OpsService
-	userService  *UserService
+	platform     PlatformIdentityRepository
 	emailService *EmailService
 	redisClient  *redis.Client
 	cfg          *config.Config
@@ -57,7 +57,7 @@ type OpsScheduledReportService struct {
 
 func NewOpsScheduledReportService(
 	opsService *OpsService,
-	userService *UserService,
+	platform PlatformIdentityRepository,
 	emailService *EmailService,
 	redisClient *redis.Client,
 	cfg *config.Config,
@@ -72,7 +72,7 @@ func NewOpsScheduledReportService(
 	}
 	return &OpsScheduledReportService{
 		opsService:   opsService,
-		userService:  userService,
+		platform:     platform,
 		emailService: emailService,
 		redisClient:  redisClient,
 		cfg:          cfg,
@@ -331,12 +331,14 @@ func (s *OpsScheduledReportService) runReport(ctx context.Context, report *opsSc
 	}
 
 	recipients := report.Recipients
-	if len(recipients) == 0 && s.userService != nil {
-		admin, err := s.userService.GetFirstAdmin(ctx)
-		if err == nil && admin != nil && strings.TrimSpace(admin.Email) != "" {
-			recipients = []string{strings.TrimSpace(admin.Email)}
+	if len(recipients) == 0 {
+		email, err := s.platform.FirstAdminEmail(ctx)
+		if err != nil {
+			return 0, err
 		}
+		recipients = []string{email}
 	}
+
 	if len(recipients) == 0 {
 		return 0, nil
 	}

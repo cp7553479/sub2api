@@ -7,44 +7,6 @@ import { apiClient } from '../client'
 import { listPlatformIds } from '@/constants/platformCatalog'
 import type { AccountPlatform, AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'
 
-export interface AdminBindAuthIdentityChannelRequest {
-  channel: string
-  channel_app_id: string
-  channel_subject: string
-  metadata?: Record<string, unknown> | null
-}
-
-export interface AdminBindAuthIdentityRequest {
-  provider_type: string
-  provider_key: string
-  provider_subject: string
-  issuer?: string | null
-  metadata?: Record<string, unknown> | null
-  channel?: AdminBindAuthIdentityChannelRequest
-}
-
-export interface AdminBoundAuthIdentityChannel {
-  channel: string
-  channel_app_id: string
-  channel_subject: string
-  metadata: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
-}
-
-export interface AdminBoundAuthIdentity {
-  user_id: number
-  provider_type: string
-  provider_key: string
-  provider_subject: string
-  verified_at?: string | null
-  issuer?: string | null
-  metadata: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
-  channel?: AdminBoundAuthIdentityChannel | null
-}
-
 export interface BatchUpdateUserLimitsRequest {
   user_ids: number[]
   all?: boolean
@@ -128,20 +90,6 @@ export async function getById(id: number, includeDeleted = false): Promise<Admin
  * @param userData - User data (email, password, etc.)
  * @returns Created user
  */
-export async function create(userData: {
-  email: string
-  password: string
-  username?: string
-  notes?: string
-  role?: 'admin' | 'user'
-  balance?: number
-  concurrency?: number
-  rpm_limit?: number
-  allowed_groups?: number[] | null
-}): Promise<AdminUser> {
-  const { data } = await apiClient.post<AdminUser>('/admin/users', userData)
-  return data
-}
 
 /**
  * Update user
@@ -159,10 +107,6 @@ export async function update(id: number, updates: UpdateUserRequest): Promise<Ad
  * @param id - User ID
  * @returns Success confirmation
  */
-export async function deleteUser(id: number): Promise<{ message: string }> {
-  const { data } = await apiClient.delete<{ message: string }>(`/admin/users/${id}`)
-  return data
-}
 
 /**
  * Update user balance
@@ -226,12 +170,6 @@ export async function findBlacklistedEmailUsers(
 }
 
 /** Disable multiple users; admins and already-disabled users are skipped. */
-export async function batchDisable(userIds: number[]): Promise<{ affected: number }> {
-  const { data } = await apiClient.post<{ affected: number }>('/admin/users/batch-disable', {
-    user_ids: userIds
-  })
-  return data
-}
 
 /**
  * Toggle user status
@@ -239,9 +177,6 @@ export async function batchDisable(userIds: number[]): Promise<{ affected: numbe
  * @param status - New status
  * @returns Updated user
  */
-export async function toggleStatus(id: number, status: 'active' | 'disabled'): Promise<AdminUser> {
-  return update(id, { status })
-}
 
 /**
  * Get user's API keys
@@ -343,16 +278,6 @@ export async function replaceGroup(
   return data
 }
 
-export async function bindUserAuthIdentity(
-  userId: number,
-  input: AdminBindAuthIdentityRequest
-): Promise<AdminBoundAuthIdentity> {
-  const { data } = await apiClient.post<AdminBoundAuthIdentity>(
-    `/admin/users/${userId}/auth-identities`,
-    input
-  )
-  return data
-}
 
 /**
  * Platform quota types
@@ -433,20 +358,15 @@ export async function resetPlatformQuotaWindow(
 export const usersAPI = {
   list,
   getById,
-  create,
   update,
-  delete: deleteUser,
   updateBalance,
   updateConcurrency,
   batchUpdateLimits,
   findBlacklistedEmailUsers,
-  batchDisable,
-  toggleStatus,
   getUserApiKeys,
   getUserUsageStats,
   getUserBalanceHistory,
   replaceGroup,
-  bindUserAuthIdentity,
   getPlatformQuotas,
   updatePlatformQuotas,
   resetPlatformQuotaWindow,

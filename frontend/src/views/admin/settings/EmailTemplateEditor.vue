@@ -340,16 +340,6 @@ function localText(zh: string, en: string): string {
 }
 
 const eventDisplayMeta: Record<string, EventDisplayMeta> = {
-  "auth.verify_code": {
-    label: "邮箱验证码",
-    timing: "注册、绑定邮箱、OAuth 补全邮箱或 TOTP 邮箱校验时发送。",
-    categoryLabel: "认证安全",
-  },
-  "auth.password_reset": {
-    label: "密码重置",
-    timing: "用户请求密码重置链接时发送。",
-    categoryLabel: "认证安全",
-  },
   "notification_email.verify_code": {
     label: "通知邮箱验证码",
     timing: "用户添加并验证额外通知邮箱时发送。",
@@ -403,16 +393,6 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
 };
 
 const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
-  "auth.verify_code": {
-    label: "Email Verification Code",
-    timing: "Sent for registration, email binding, OAuth pending email completion, or TOTP email verification.",
-    categoryLabel: "Auth",
-  },
-  "auth.password_reset": {
-    label: "Password Reset",
-    timing: "Sent when a user requests a password reset link.",
-    categoryLabel: "Auth",
-  },
   "notification_email.verify_code": {
     label: "Notification Email Verification",
     timing: "Sent when a user adds and verifies an extra notification email address.",

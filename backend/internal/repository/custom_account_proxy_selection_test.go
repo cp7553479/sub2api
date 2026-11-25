@@ -10,13 +10,12 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAccountProxySelectionLargePoolAndTransactionalLeastUsed(t *testing.T) {
-	db := scopedAdminKeyTestDB(t)
+	db := proxyOptionsTestDB(t)
 	_, err := db.Exec(`CREATE TABLE proxies(
  id BIGINT PRIMARY KEY,name TEXT DEFAULT '',protocol TEXT DEFAULT 'http',host TEXT DEFAULT '192.0.2.1',port INT DEFAULT 8080,
  username TEXT DEFAULT 'SECRET_USER',password TEXT DEFAULT 'SECRET_PASSWORD',status TEXT DEFAULT 'active',
@@ -86,13 +85,7 @@ func TestAccountProxySelectionLargePoolAndTransactionalLeastUsed(t *testing.T) {
 	result := <-done
 	require.NoError(t, result.err)
 	require.EqualValues(t, 9, result.id)
-	// 候选查询不能通过用户名搜索探测认证字段。
-	scopedCtx := adminaccess.WithPrincipal(context.Background(), &adminaccess.Principal{Policy: adminaccess.Policy{GlobalPermissions: []string{"proxies.read"}}})
-	matches, meta, err := repo.ListOptions(scopedCtx, pagination.PaginationParams{Page: 1, PageSize: 100}, "SECRET_USER")
-	require.NoError(t, err)
-	require.Empty(t, matches)
-	require.Zero(t, meta.Total)
-	matches, meta, err = repo.ListOptions(context.Background(), pagination.PaginationParams{Page: 1, PageSize: 100}, "SECRET_USER")
+	matches, meta, err := repo.ListOptions(context.Background(), pagination.PaginationParams{Page: 1, PageSize: 100}, "SECRET_USER")
 	require.NoError(t, err)
 	require.Empty(t, matches)
 	require.Zero(t, meta.Total)

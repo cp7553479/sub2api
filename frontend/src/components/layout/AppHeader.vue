@@ -361,11 +361,10 @@ async function handleLogout() {
   closeDropdown()
   try {
     await authStore.logout()
+    await router.push('/login')
   } catch (error) {
-    // Ignore logout errors - still redirect to login
-    console.error('Logout error:', error)
+    appStore.showError((error as { message?: string }).message || t('auth.logoutFailed'))
   }
-  await router.push('/login')
 }
 
 function handleReplayGuide() {
