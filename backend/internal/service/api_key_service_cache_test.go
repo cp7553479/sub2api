@@ -13,6 +13,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
@@ -701,4 +702,69 @@ func TestAPIKeyService_GetByKey_SingleflightCollapses(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+}
+
+// platformRevokingRepository 先放行、后被切换为拒绝，用于证明缓存命中的 key 仍受平台身份检查约束。
+type platformRevokingRepository struct {
+	platformTestRepository
+	reject atomic.Bool
+}
+
+func (r *platformRevokingRepository) RequireBusinessUser(context.Context, int64) (*SupabaseIdentity, error) {
+	if r.reject.Load() {
+		return nil, ErrPlatformDisabled
+	}
+	return &SupabaseIdentity{UserID: uuid.Must(uuid.NewRandom()), Status: StatusActive}, nil
+}
+
+// cachedKeyService 构造一把会进入缓存的 key：repo 只在首次被访问，之后均为缓存命中。
+func cachedKeyService(t *testing.T, platform *platformRevokingRepository) (*APIKeyService, *int32) {
+	t.Helper()
+	var calls int32
+	repo := &authRepoStub{
+		getByKeyForAuth: func(ctx context.Context, key string) (*APIKey, error) {
+			atomic.AddInt32(&calls, 1)
+			return &APIKey{
+				ID:     31,
+				UserID: 7,
+				Status: StatusActive,
+				User:   &User{ID: 7, Status: StatusActive, Role: RoleUser, Balance: 5, Concurrency: 2},
+			}, nil
+		},
+	}
+	cfg := &config.Config{
+		APIKeyAuth: config.APIKeyAuthCacheConfig{
+			L1Size:       1000,
+			L1TTLSeconds: 60,
+		},
+	}
+	svc := NewAPIKeyService(repo, nil, nil, nil, nil, &authCacheStub{}, cfg, platform)
+	require.NotNil(t, svc.authCacheL1)
+	_, err := svc.GetByKey(context.Background(), "k-platform")
+	require.NoError(t, err)
+	svc.authCacheL1.Wait()
+	_, cached := svc.authCacheL1.Get(svc.authCacheKey("k-platform"))
+	require.True(t, cached, "key must be cached before the platform revokes it")
+	return svc, &calls
+}
+
+// 平台身份在 key 已缓存之后失效：命中缓存也必须拒绝，且不得再访问数据库。
+func TestAPIKeyService_GetByKey_RejectsCachedKeyWhenPlatformRevokes(t *testing.T) {
+	platform := &platformRevokingRepository{}
+	svc, calls := cachedKeyService(t, platform)
+
+	// 对照：平台仍放行时命中缓存成功，且 repo 只被访问过一次。
+	_, err := svc.GetByKey(context.Background(), "k-platform")
+	require.NoError(t, err)
+	require.Equal(t, int32(1), atomic.LoadInt32(calls))
+
+	platform.reject.Store(true)
+	apiKey, err := svc.GetByKey(context.Background(), "k-platform")
+	require.ErrorIs(t, err, ErrPlatformDisabled)
+	require.Nil(t, apiKey, "a cached key must not be returned once the platform rejects its owner")
+	require.Equal(t, int32(1), atomic.LoadInt32(calls), "the rejection must come from the platform check, not a repo lookup")
+
+	platform.reject.Store(false)
+	_, err = svc.GetByKey(context.Background(), "k-platform")
+	require.NoError(t, err, "authorization follows the current platform state on every call")
 }
